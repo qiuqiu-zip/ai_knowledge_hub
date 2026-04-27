@@ -169,11 +169,40 @@ async function saveEdit() {
 }
 
 async function copyContent(content: string) {
+  const text = content || ''
   try {
-    await navigator.clipboard.writeText(content || '')
-    ElMessage.success('已复制到剪贴板')
-  } catch (error) {
-    console.error(error)
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      ElMessage.success('已复制到剪贴板')
+      return
+    }
+    throw new Error('Clipboard API unavailable')
+  } catch {
+    // Fallback for non-secure context (e.g. LAN IP over HTTP) or denied clipboard permission.
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.setAttribute('readonly', 'true')
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    textarea.style.pointerEvents = 'none'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+
+    let ok = false
+    try {
+      ok = document.execCommand('copy')
+    } catch (error) {
+      console.error(error)
+      ok = false
+    } finally {
+      document.body.removeChild(textarea)
+    }
+
+    if (ok) {
+      ElMessage.success('已复制到剪贴板')
+      return
+    }
     ElMessage.error('复制失败，请手动复制')
   }
 }
