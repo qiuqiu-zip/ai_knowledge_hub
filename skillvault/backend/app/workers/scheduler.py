@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.jobs import enqueue_job
 from app.core.config import settings
@@ -31,6 +31,30 @@ def _build_dedupe_key(source: models.Source, repo_full_name: str | None) -> str:
 def run_scheduler_once() -> None:
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:
+        today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+        jobs_today = db.scalar(
+            select(func.count())
+            .select_from(models.SyncJob)
+            .where(models.SyncJob.job_type == models.JobType.github_sync)
+            .where(models.SyncJob.created_at >= today_start)
+        ) or 0
+        files_today = db.scalar(
+            select(func.count())
+            .select_from(models.SourceDocument)
+            .where(models.SourceDocument.source_type == models.SourceType.github_api)
+            .where(models.SourceDocument.created_at >= today_start)
+        ) or 0
+        if jobs_today >= settings.github_sync_daily_max_jobs or files_today >= settings.github_sync_daily_max_files:
+            logger.warning(
+                "skip scheduling github_sync due to daily budget jobs_today=%s/%s files_today=%s/%s",
+                jobs_today,
+                settings.github_sync_daily_max_jobs,
+                files_today,
+                settings.github_sync_daily_max_files,
+            )
+            _enqueue_daily_digest_if_due(db, now)
+            return
+
         due_sources = list(
             db.scalars(
                 select(models.Source)
@@ -39,10 +63,10 @@ def run_scheduler_once() -> None:
                 .where(models.Source.next_sync_at.is_not(None))
                 .where(models.Source.next_sync_at <= now)
                 .order_by(models.Source.next_sync_at.asc())
-                .limit(settings.scheduler_max_jobs_per_tick)
+                .limit(settings.github_sync_max_sources_per_run)
             ).all()
         )
-        logger.info("found %s due sources (max_jobs_per_tick=%s)", len(due_sources), settings.scheduler_max_jobs_per_tick)
+        logger.info("found %s due sources (max_sources_per_run=%s)", len(due_sources), settings.github_sync_max_sources_per_run)
 
         for source in due_sources:
             try:
@@ -85,7 +109,8 @@ def run_scheduler_once() -> None:
                     max_retry=3,
                     dedupe_key=dedupe_key,
                 )
-                interval = max(source.sync_interval_minutes, settings.min_github_sync_interval_minutes)
+                min_interval = max(settings.min_github_sync_interval_minutes, settings.github_sync_min_interval_minutes)
+                interval = max(source.sync_interval_minutes, min_interval)
                 source.last_sync_at = now
                 source.next_sync_at = now + timedelta(minutes=interval)
                 db.commit()
@@ -99,6 +124,64 @@ def run_scheduler_once() -> None:
             except Exception:
                 db.rollback()
                 logger.exception("scheduler error for source_id=%s", source.id)
+        _enqueue_daily_digest_if_due(db, now)
+
+
+def _enqueue_daily_digest_if_due(db, now: datetime) -> None:
+    digest_date = now.date().isoformat()
+    dedupe_key = f"daily_digest:{digest_date}"
+    logger.info(
+        "daily_digest schedule check now=%s hour=%s digest_daily_hour=%s digest_date=%s dedupe_key=%s",
+        now.isoformat(),
+        now.hour,
+        settings.digest_daily_hour,
+        digest_date,
+        dedupe_key,
+    )
+
+    if now.hour < settings.digest_daily_hour:
+        logger.info(
+            "skip daily_digest because generation hour not reached current_hour=%s required_hour=%s",
+            now.hour,
+            settings.digest_daily_hour,
+        )
+        return
+
+    existing = db.scalar(
+        select(models.SyncJob)
+        .where(models.SyncJob.dedupe_key == dedupe_key)
+        .where(models.SyncJob.status.in_([models.JobStatus.pending, models.JobStatus.running, models.JobStatus.success]))
+        .limit(1)
+    )
+    if existing:
+        logger.info(
+            "skip daily_digest because existing job found dedupe_key=%s job_id=%s status=%s",
+            dedupe_key,
+            existing.id,
+            existing.status,
+        )
+        return
+
+    existing_digest = db.scalar(
+        select(models.DailyDigest).where(models.DailyDigest.digest_date == digest_date).limit(1)
+    )
+    if existing_digest:
+        logger.info(
+            "skip daily_digest because digest record already exists digest_date=%s digest_id=%s",
+            digest_date,
+            existing_digest.id,
+        )
+        return
+
+    job = enqueue_job(
+        db,
+        job_type=models.JobType.daily_digest,
+        payload={"date": digest_date, "window_hours": 24},
+        priority=80,
+        max_retry=2,
+        dedupe_key=dedupe_key,
+    )
+    logger.info("enqueue daily_digest date=%s dedupe_key=%s job_id=%s", digest_date, dedupe_key, job.id)
 
 
 def main() -> None:

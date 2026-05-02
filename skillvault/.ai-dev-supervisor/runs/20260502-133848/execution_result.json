@@ -1,0 +1,17 @@
+{
+  "executor_name": "aider",
+  "command": [
+    "aider",
+    "--model",
+    "ollama/qwen2.5-coder:32b",
+    "--message-file",
+    "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-133848/task_prompt.txt",
+    "--no-auto-commits",
+    "--no-dirty-commits"
+  ],
+  "exit_code": 0,
+  "stdout_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-133848/executor_stdout.log",
+  "stderr_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-133848/executor_stderr.log",
+  "started_at": "2026-05-02T13:38:49.297061",
+  "ended_at": "2026-05-02T13:38:49.297068"
+}

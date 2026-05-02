@@ -56,7 +56,13 @@ cp .env.example .env
 - `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`: OpenAI-compatible 聊天模型
 - `EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL`: OpenAI-compatible embedding
 - `EMBEDDING_DIMENSION`: pgvector 维度（默认 1536）
-- `ADMIN_TOKEN`: 可选接口保护 token（通过 `X-Admin-Token` 传入）
+- `AUTH_SECRET_KEY`: JWT 签名密钥（生产环境必填）
+- `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES`: 登录 token 过期时间（默认 1440 分钟）
+- `AUTH_ALGORITHM`: JWT 算法（默认 HS256）
+- `ADMIN_USERNAME`: 初始管理员用户名（默认 admin）
+- `ADMIN_PASSWORD`: 初始管理员密码（仅当 users 表为空时用于自动创建）
+- `AUTH_ENABLE_DOCS`: 是否开启 `/docs`（生产建议 `false`）
+- `AUTH_ENABLE_REDOC`: 是否开启 `/redoc`（生产建议 `false`）
 - `SCHEDULER_POLL_INTERVAL_SECONDS`: 自动同步调度轮询间隔（默认 60 秒）
 - `DEFAULT_GITHUB_SYNC_INTERVAL_MINUTES`: Source 默认同步间隔（默认 1440 分钟）
 - `MIN_GITHUB_SYNC_INTERVAL_MINUTES`: 最小允许同步间隔（默认 10 分钟）
@@ -67,6 +73,14 @@ Backend 容器启动时执行：
 
 ```bash
 alembic upgrade head
+```
+
+当 users 表为空且设置了 `ADMIN_USERNAME`/`ADMIN_PASSWORD` 时，服务启动会自动创建管理员。
+如果 users 表已有数据但管理员不可用，可执行：
+
+```bash
+cd backend
+python -m app.scripts.create_admin
 ```
 
 如需手动执行：

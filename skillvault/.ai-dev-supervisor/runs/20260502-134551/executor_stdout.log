@@ -1,0 +1,1 @@
+DRY RUN command: aider --model ollama/qwen2.5-coder:32b --message-file /Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-134551/task_prompt.txt --no-auto-commits --no-dirty-commits

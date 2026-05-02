@@ -37,7 +37,8 @@ def _enqueue_document_job(
     job_type: models.JobType,
     priority: int,
 ) -> dict:
-    if not db.get(models.SourceDocument, doc_id):
+    doc = db.get(models.SourceDocument, doc_id)
+    if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
     dedupe_key = f"{job_type.value}:doc:{doc_id}"
@@ -48,6 +49,11 @@ def _enqueue_document_job(
         priority=priority,
         dedupe_key=dedupe_key,
     )
+    if job_type == models.JobType.summarize:
+        meta = dict(doc.metadata_json or {})
+        meta["summary_status"] = "pending"
+        doc.metadata_json = meta
+        db.commit()
     return {
         "job_id": job.id,
         "job_type": job.job_type,

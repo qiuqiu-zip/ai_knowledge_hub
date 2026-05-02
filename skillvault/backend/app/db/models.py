@@ -38,6 +38,7 @@ class JobType(str, enum.Enum):
     document_embed = "document_embed"
     summarize = "summarize"
     skill_generate = "skill_generate"
+    daily_digest = "daily_digest"
 
 
 class JobStatus(str, enum.Enum):
@@ -191,6 +192,16 @@ class Prompt(Base, IDMixin, TimestampMixin):
     is_favorite: Mapped[bool] = mapped_column(default=False, nullable=False)
 
 
+class User(Base, IDMixin, TimestampMixin):
+    __tablename__ = "users"
+
+    username: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class SyncJob(Base, IDMixin, TimestampMixin):
     __tablename__ = "sync_job"
 
@@ -212,3 +223,12 @@ class SyncJob(Base, IDMixin, TimestampMixin):
         index=True,
         server_default=func.now(),
     )
+
+
+class DailyDigest(Base, IDMixin, TimestampMixin):
+    __tablename__ = "daily_digest"
+
+    digest_date: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    stats_json: Mapped[dict] = mapped_column("stats", JSONB, default=dict, nullable=False)

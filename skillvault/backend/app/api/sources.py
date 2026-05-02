@@ -127,10 +127,11 @@ def update_sync_settings(source_id: int, payload: SourceSyncSettingsUpdate, db: 
     if not obj:
         raise HTTPException(status_code=404, detail="Source not found")
 
-    if payload.sync_interval_minutes < settings.min_github_sync_interval_minutes:
+    min_interval = max(settings.min_github_sync_interval_minutes, settings.github_sync_min_interval_minutes)
+    if payload.sync_interval_minutes < min_interval:
         raise HTTPException(
             status_code=400,
-            detail=f"sync_interval_minutes must be >= {settings.min_github_sync_interval_minutes}",
+            detail=f"sync_interval_minutes must be >= {min_interval}",
         )
     interval = payload.sync_interval_minutes
     obj.sync_interval_minutes = interval
@@ -193,6 +194,7 @@ def sync_now(source_id: int, db: Session = Depends(get_db)):
     if not existing:
         now = datetime.now(timezone.utc)
         obj.last_sync_at = now
-        obj.next_sync_at = now + timedelta(minutes=max(obj.sync_interval_minutes, settings.min_github_sync_interval_minutes))
+        min_interval = max(settings.min_github_sync_interval_minutes, settings.github_sync_min_interval_minutes)
+        obj.next_sync_at = now + timedelta(minutes=max(obj.sync_interval_minutes, min_interval))
         db.commit()
     return SourceSyncNowResponse(job_id=job.id, job_type=job.job_type.value, status=job.status.value)

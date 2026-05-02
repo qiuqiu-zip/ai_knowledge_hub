@@ -1,0 +1,11 @@
+{
+  "executor_name": "manual",
+  "command": [
+    "manual"
+  ],
+  "exit_code": 0,
+  "stdout_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-140226/executor_stdout.log",
+  "stderr_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-140226/executor_stderr.log",
+  "started_at": "2026-05-02T06:02:42.163865Z",
+  "ended_at": "2026-05-02T06:02:42.164121Z"
+}

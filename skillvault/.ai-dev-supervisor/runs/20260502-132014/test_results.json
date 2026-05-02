@@ -1,0 +1,18 @@
+{
+  "results": [
+    {
+      "command": "python3 -m compileall backend/app",
+      "cwd": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault",
+      "exit_code": 0,
+      "stdout": "Listing 'backend/app'...\nCompiling 'backend/app/__init__.py'...\nListing 'backend/app/api'...\nCompiling 'backend/app/api/__init__.py'...\nCompiling 'backend/app/api/auth.py'...\nCompiling 'backend/app/api/digests.py'...\nCompiling 'backend/app/api/documents.py'...\nCompiling 'backend/app/api/github.py'...\nCompiling 'backend/app/api/jobs.py'...\nCompiling 'backend/app/api/knowledge.py'...\nCompiling 'backend/app/api/prompts.py'...\nCompiling 'backend/app/api/search.py'...\nCompiling 'backend/app/api/skills.py'...\nCompiling 'backend/app/api/sources.py'...\nListing 'backend/app/core'...\nCompiling 'backend/app/core/__init__.py'...\nCompiling 'backend/app/core/config.py'...\nCompiling 'backend/app/core/logging.py'...\nCompiling 'backend/app/core/security.py'...\nListing 'backend/app/db'...\nCompiling 'backend/app/db/__init__.py'...\nCompiling 'backend/app/db/base.py'...\nCompiling 'backend/app/db/models.py'...\nCompiling 'backend/app/db/session.py'...\nCompiling 'backend/app/main.py'...\nListing 'backend/app/schemas'...\nCompiling 'backend/app/schemas/__init__.py'...\nCompiling 'backend/app/schemas/auth.py'...\nCompiling 'backend/app/schemas/digest.py'...\nCompiling 'backend/app/schemas/document.py'...\nCompiling 'backend/app/schemas/github.py'...\nCompiling 'backend/app/schemas/job.py'...\nCompiling 'backend/app/schemas/knowledge.py'...\nCompiling 'backend/app/schemas/prompt.py'...\nCompiling 'backend/app/schemas/search.py'...\nCompiling 'backend/app/schemas/skill.py'...\nCompiling 'backend/app/schemas/source.py'...\nListing 'backend/app/scripts'...\nCompiling 'backend/app/scripts/__init__.py'...\nCompiling 'backend/app/scripts/create_admin.py'...\nListing 'backend/app/services'...\nCompiling 'backend/app/services/__init__.py'...\nCompiling 'backend/app/services/chunk_service.py'...\nCompiling 'backend/app/services/embedding_service.py'...\nCompiling 'backend/app/services/github_service.py'...\nCompiling 'backend/app/services/ingestion_service.py'...\nCompiling 'backend/app/services/llm_service.py'...\nCompiling 'backend/app/services/rag_service.py'...\nCompiling 'backend/app/services/skill_generator.py'...\nListing 'backend/app/workers'...\nCompiling 'backend/app/workers/__init__.py'...\nCompiling 'backend/app/workers/handlers.py'...\nCompiling 'backend/app/workers/job_runner.py'...\nCompiling 'backend/app/workers/scheduler.py'...\nCompiling 'backend/app/workers/worker.py'...\n",
+      "stderr": ""
+    },
+    {
+      "command": "cd frontend && npm run build",
+      "cwd": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault",
+      "exit_code": 127,
+      "stdout": "",
+      "stderr": "/bin/sh: npm: command not found\n"
+    }
+  ]
+}

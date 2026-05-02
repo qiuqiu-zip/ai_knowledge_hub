@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import api from '../api/client'
+import MarkdownPreview from '../components/MarkdownPreview.vue'
 
 interface PromptItem {
   id: number
@@ -24,6 +26,7 @@ const deleting = ref(false)
 const batchDeleting = ref(false)
 const createDialogVisible = ref(false)
 const togglingFavorite = reactive<Record<number, boolean>>({})
+const { t } = useI18n()
 
 const filters = reactive({
   keyword: '',
@@ -81,7 +84,7 @@ async function loadPrompts() {
     prompts.value = data
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '加载 Prompt 失败')
+    ElMessage.error(error?.response?.data?.detail || 'Load prompts failed')
   } finally {
     listLoading.value = false
   }
@@ -91,11 +94,11 @@ async function createPrompt() {
   const title = createForm.title.trim()
   const content = createForm.content.trim()
   if (!title) {
-    ElMessage.warning('Title 不能为空')
+    ElMessage.warning(`${t('prompts.titleLabel')} required`)
     return
   }
   if (!content) {
-    ElMessage.warning('Content 不能为空')
+    ElMessage.warning(`${t('prompts.contentLabel')} required`)
     return
   }
 
@@ -110,10 +113,10 @@ async function createPrompt() {
     createDialogVisible.value = false
     resetCreateForm()
     await loadPrompts()
-    ElMessage.success('Prompt 创建成功')
+    ElMessage.success(t('prompts.createPrompt'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '创建失败')
+    ElMessage.error(error?.response?.data?.detail || 'Create failed')
   } finally {
     creating.value = false
   }
@@ -141,11 +144,11 @@ async function saveEdit() {
   const title = editForm.title.trim()
   const content = editForm.content.trim()
   if (!title) {
-    ElMessage.warning('Title 不能为空')
+    ElMessage.warning(`${t('prompts.titleLabel')} required`)
     return
   }
   if (!content) {
-    ElMessage.warning('Content 不能为空')
+    ElMessage.warning(`${t('prompts.contentLabel')} required`)
     return
   }
 
@@ -159,10 +162,10 @@ async function saveEdit() {
     })
     editDialogVisible.value = false
     await loadPrompts()
-    ElMessage.success('保存成功')
+    ElMessage.success(t('common.save'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '保存失败')
+    ElMessage.error(error?.response?.data?.detail || 'Save failed')
   } finally {
     savingEdit.value = false
   }
@@ -173,7 +176,7 @@ async function copyContent(content: string) {
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text)
-      ElMessage.success('已复制到剪贴板')
+      ElMessage.success(t('documents.linkCopied'))
       return
     }
     throw new Error('Clipboard API unavailable')
@@ -200,16 +203,16 @@ async function copyContent(content: string) {
     }
 
     if (ok) {
-      ElMessage.success('已复制到剪贴板')
+      ElMessage.success(t('documents.linkCopied'))
       return
     }
-    ElMessage.error('复制失败，请手动复制')
+    ElMessage.error('Copy failed, please copy manually')
   }
 }
 
 async function deleteOne(row: PromptItem) {
   try {
-    await ElMessageBox.confirm(`确认删除 Prompt #${row.id} 吗？`, '删除确认', {
+    await ElMessageBox.confirm(`Delete Prompt #${row.id}?`, t('prompts.deleteConfirmTitle'), {
       type: 'warning',
     })
   } catch {
@@ -220,10 +223,10 @@ async function deleteOne(row: PromptItem) {
   try {
     await api.delete(`/api/prompts/${row.id}`)
     await loadPrompts()
-    ElMessage.success('删除成功')
+    ElMessage.success(t('common.delete'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '删除失败')
+    ElMessage.error(error?.response?.data?.detail || 'Delete failed')
   } finally {
     deleting.value = false
   }
@@ -237,12 +240,12 @@ const selectedIds = computed(() => selectedRows.value.map((r) => r.id))
 
 async function batchDelete() {
   if (selectedIds.value.length === 0) {
-    ElMessage.warning('请先选择要删除的 Prompt')
+    ElMessage.warning('Please select prompts first')
     return
   }
 
   try {
-    await ElMessageBox.confirm(`将删除 ${selectedIds.value.length} 条 Prompt，是否继续？`, '批量删除确认', {
+    await ElMessageBox.confirm(`Delete ${selectedIds.value.length} prompts?`, t('prompts.deleteConfirmTitle'), {
       type: 'warning',
     })
   } catch {
@@ -254,10 +257,10 @@ async function batchDelete() {
     await api.post('/api/prompts/batch-delete', { ids: selectedIds.value })
     selectedRows.value = []
     await loadPrompts()
-    ElMessage.success('批量删除成功')
+    ElMessage.success(t('prompts.batchDelete'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '批量删除失败')
+    ElMessage.error(error?.response?.data?.detail || 'Batch delete failed')
   } finally {
     batchDeleting.value = false
   }
@@ -271,7 +274,7 @@ async function toggleFavorite(row: PromptItem) {
     row.is_favorite = !!data.is_favorite
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || '收藏切换失败')
+    ElMessage.error(error?.response?.data?.detail || 'Favorite toggle failed')
   } finally {
     togglingFavorite[row.id] = false
   }
@@ -292,12 +295,12 @@ onMounted(loadPrompts)
 <template>
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
     <div>
-      <h2 style="margin: 0">Prompts</h2>
-      <p style="margin: 4px 0 0; color: #6b7280">Manage reusable prompts and prompt templates</p>
+      <h2 style="margin: 0">{{ t('prompts.title') }}</h2>
+      <p style="margin: 4px 0 0; color: #6b7280">{{ t('prompts.subtitle') }}</p>
     </div>
     <el-space>
-      <el-button type="primary" @click="openCreateDialog">New Prompt</el-button>
-      <el-button :loading="listLoading" @click="loadPrompts">Refresh</el-button>
+      <el-button type="primary" @click="openCreateDialog">{{ t('prompts.newPrompt') }}</el-button>
+      <el-button :loading="listLoading" @click="loadPrompts">{{ t('common.refresh') }}</el-button>
     </el-space>
   </div>
 
@@ -306,17 +309,17 @@ onMounted(loadPrompts)
       <el-space>
         <el-input
           v-model="filters.keyword"
-          placeholder="搜索 title 或 content"
+          :placeholder="t('prompts.searchPlaceholder')"
           style="width: 300px"
           clearable
           @keyup.enter="doSearch"
         />
-        <el-button @click="doSearch">Search</el-button>
-        <el-button @click="resetSearch">Reset</el-button>
+        <el-button @click="doSearch">{{ t('common.search') }}</el-button>
+        <el-button @click="resetSearch">{{ t('common.reset') }}</el-button>
       </el-space>
       <el-space>
-        <el-button type="danger" :loading="batchDeleting" @click="batchDelete">Batch Delete</el-button>
-        <el-button :loading="listLoading" @click="loadPrompts">Refresh</el-button>
+        <el-button type="danger" :loading="batchDeleting" @click="batchDelete">{{ t('prompts.batchDelete') }}</el-button>
+        <el-button :loading="listLoading" @click="loadPrompts">{{ t('common.refresh') }}</el-button>
       </el-space>
     </div>
   </el-card>
@@ -325,8 +328,8 @@ onMounted(loadPrompts)
     <el-table :data="prompts" v-loading="listLoading" @selection-change="onSelectionChange">
       <el-table-column type="selection" width="50" />
       <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="title" label="Title" min-width="180" />
-      <el-table-column label="Content Preview" min-width="300">
+      <el-table-column prop="title" :label="t('prompts.titleLabel')" min-width="180" />
+      <el-table-column :label="t('prompts.contentPreview')" min-width="300">
         <template #default="scope">
           <el-link
             type="primary"
@@ -337,14 +340,14 @@ onMounted(loadPrompts)
           </el-link>
         </template>
       </el-table-column>
-      <el-table-column label="Tags" min-width="170">
+      <el-table-column :label="t('prompts.tagsLabel')" min-width="170">
         <template #default="scope">
           <el-space wrap>
             <el-tag v-for="tag in scope.row.tags || []" :key="tag" size="small" type="info">{{ tag }}</el-tag>
           </el-space>
         </template>
       </el-table-column>
-      <el-table-column label="Favorite" width="100">
+      <el-table-column :label="t('prompts.favorite')" width="100">
         <template #default="scope">
           <el-button text :loading="togglingFavorite[scope.row.id]" @click="toggleFavorite(scope.row)">
             {{ scope.row.is_favorite ? '★' : '☆' }}
@@ -354,92 +357,106 @@ onMounted(loadPrompts)
       <el-table-column label="Created At" width="170">
         <template #default="scope">{{ formatDate(scope.row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="Actions" width="300">
+      <el-table-column :label="t('common.actions')" width="300">
         <template #default="scope">
           <el-space>
-            <el-button size="small" @click="openView(scope.row)">View</el-button>
-            <el-button size="small" @click="copyContent(scope.row.content)">Copy</el-button>
-            <el-button size="small" type="primary" @click="openEdit(scope.row)">Edit</el-button>
-            <el-button size="small" type="danger" :loading="deleting" @click="deleteOne(scope.row)">Delete</el-button>
+            <el-button size="small" @click="openView(scope.row)">{{ t('common.view') }}</el-button>
+            <el-button size="small" @click="copyContent(scope.row.content)">{{ t('common.copy') }}</el-button>
+            <el-button size="small" type="primary" @click="openEdit(scope.row)">{{ t('common.edit') }}</el-button>
+            <el-button size="small" type="danger" :loading="deleting" @click="deleteOne(scope.row)">{{ t('common.delete') }}</el-button>
           </el-space>
         </template>
       </el-table-column>
       <template #empty>
-        <el-empty description="No prompts yet. Click &quot;New Prompt&quot; to create one." />
+        <el-empty :description="t('prompts.newPrompt')" />
       </template>
     </el-table>
   </el-card>
 
-  <el-dialog v-model="createDialogVisible" title="New Prompt" width="800px">
+  <el-dialog v-model="createDialogVisible" :title="t('prompts.newPrompt')" width="900px">
     <el-form label-width="80px">
-      <el-form-item label="Title">
+      <el-form-item :label="t('prompts.titleLabel')">
         <el-input v-model="createForm.title" placeholder="Prompt title" />
       </el-form-item>
-      <el-form-item label="Content">
-        <el-input v-model="createForm.content" type="textarea" :rows="10" placeholder="Prompt content" />
+      <el-form-item :label="t('prompts.contentLabel')">
+        <el-input
+          v-model="createForm.content"
+          type="textarea"
+          :autosize="{ minRows: 14, maxRows: 28 }"
+          :placeholder="t('prompts.markdownSupported')"
+          class="prompt-markdown-textarea"
+        />
       </el-form-item>
-      <el-form-item label="Tags">
+      <el-form-item :label="t('prompts.tagsLabel')">
         <el-input v-model="createForm.tagsText" placeholder="java, debug, ai" />
       </el-form-item>
-      <el-form-item label="Favorite">
-        <el-checkbox v-model="createForm.is_favorite">收藏</el-checkbox>
+      <el-form-item :label="t('prompts.favorite')">
+        <el-checkbox v-model="createForm.is_favorite">{{ t('prompts.favorite') }}</el-checkbox>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="createDialogVisible = false">Cancel</el-button>
-      <el-button type="primary" :loading="creating" @click="createPrompt">Create</el-button>
+      <el-button @click="createDialogVisible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="creating" @click="createPrompt">{{ t('common.create') }}</el-button>
     </template>
   </el-dialog>
 
-  <el-dialog v-model="viewDialogVisible" :title="activePrompt?.title || 'Prompt Detail'" width="800px">
+  <el-dialog v-model="viewDialogVisible" :title="activePrompt?.title || t('prompts.title')" width="1000px">
     <template v-if="activePrompt">
-      <p><strong>标题：</strong>{{ activePrompt.title }}</p>
-      <p><strong>Tags：</strong>{{ (activePrompt.tags || []).join(', ') || '-' }}</p>
-      <p><strong>Favorite：</strong>{{ activePrompt.is_favorite ? '★ Favorite' : '☆ Not Favorite' }}</p>
-      <p><strong>创建时间：</strong>{{ formatDate(activePrompt.created_at) }}</p>
-      <p><strong>更新时间：</strong>{{ formatDate(activePrompt.updated_at) }}</p>
-      <p><strong>来源：</strong>{{ activePrompt.source_type || '-' }}</p>
-      <div
-        style="
-          background: #f7f7f9;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          padding: 16px;
-          white-space: pre-wrap;
-          word-break: break-word;
-          font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
-          max-height: 60vh;
-          overflow-y: auto;
-        "
-      >
-        {{ activePrompt.content }}
+      <div style="display: flex; flex-direction: column; gap: 12px; max-height: 85vh">
+        <el-card shadow="never">
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item :label="t('prompts.titleLabel')">{{ activePrompt.title }}</el-descriptions-item>
+            <el-descriptions-item :label="t('prompts.favorite')">{{ activePrompt.is_favorite ? '★' : '☆' }}</el-descriptions-item>
+            <el-descriptions-item :label="t('prompts.tagsLabel')">{{ (activePrompt.tags || []).join(', ') || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="Source">{{ activePrompt.source_type || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="Created At">{{ formatDate(activePrompt.created_at) }}</el-descriptions-item>
+            <el-descriptions-item label="Updated At">{{ formatDate(activePrompt.updated_at) }}</el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+        <div style="overflow-y: auto; max-height: calc(85vh - 190px)">
+          <MarkdownPreview :content="activePrompt.content" />
+        </div>
       </div>
     </template>
     <template #footer>
-      <el-button @click="copyContent(activePrompt?.content || '')">Copy Content</el-button>
-      <el-button type="primary" @click="activePrompt && openEdit(activePrompt)">Edit</el-button>
-      <el-button @click="viewDialogVisible = false">Close</el-button>
+      <el-button @click="copyContent(activePrompt?.content || '')">{{ t('prompts.copyPrompt') }}</el-button>
+      <el-button type="primary" @click="activePrompt && openEdit(activePrompt)">{{ t('common.edit') }}</el-button>
+      <el-button @click="viewDialogVisible = false">{{ t('common.close') }}</el-button>
     </template>
   </el-dialog>
 
-  <el-dialog v-model="editDialogVisible" title="Edit Prompt" width="800px">
+  <el-dialog v-model="editDialogVisible" :title="t('prompts.editPrompt')" width="900px">
     <el-form label-width="80px">
-      <el-form-item label="Title">
+      <el-form-item :label="t('prompts.titleLabel')">
         <el-input v-model="editForm.title" />
       </el-form-item>
-      <el-form-item label="Content">
-        <el-input v-model="editForm.content" type="textarea" :rows="10" />
+      <el-form-item :label="t('prompts.contentLabel')">
+        <el-input
+          v-model="editForm.content"
+          type="textarea"
+          :autosize="{ minRows: 14, maxRows: 28 }"
+          :placeholder="t('prompts.markdownSupported')"
+          class="prompt-markdown-textarea"
+        />
       </el-form-item>
-      <el-form-item label="Tags">
+      <el-form-item :label="t('prompts.tagsLabel')">
         <el-input v-model="editForm.tagsText" placeholder="java, debug, ai" />
       </el-form-item>
-      <el-form-item label="Favorite">
-        <el-checkbox v-model="editForm.is_favorite">收藏</el-checkbox>
+      <el-form-item :label="t('prompts.favorite')">
+        <el-checkbox v-model="editForm.is_favorite">{{ t('prompts.favorite') }}</el-checkbox>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="editDialogVisible = false">Cancel</el-button>
-      <el-button type="primary" :loading="savingEdit" @click="saveEdit">Save</el-button>
+      <el-button @click="editDialogVisible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="savingEdit" @click="saveEdit">{{ t('common.save') }}</el-button>
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+.prompt-markdown-textarea :deep(.el-textarea__inner) {
+  min-height: 420px;
+  font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+  line-height: 1.65;
+}
+</style>

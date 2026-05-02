@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     embedding_dimension: int = 1536
 
     admin_token: str | None = None
+    auth_secret_key: str | None = None
+    auth_access_token_expire_minutes: int = 1440
+    auth_algorithm: str = "HS256"
+    admin_username: str = "admin"
+    admin_password: str = "lsq123456"
+    auth_enable_docs: bool = True
+    auth_enable_redoc: bool = True
 
     worker_id: str = "worker-1"
     worker_poll_interval_seconds: int = 3
@@ -34,6 +41,25 @@ class Settings(BaseSettings):
     scheduler_max_jobs_per_tick: int = 5
     default_github_sync_interval_minutes: int = 1440
     min_github_sync_interval_minutes: int = 10
+    github_sync_min_interval_minutes: int = 1440
+    github_sync_max_sources_per_run: int = 5
+    github_sync_max_files_per_source: int = 50
+    github_sync_max_file_size_bytes: int = 1048576
+    github_sync_daily_max_jobs: int = 20
+    github_sync_daily_max_files: int = 500
+    github_sync_prefer_chinese: bool = True
+    github_sync_auto_summary_limit: int = 5
+
+    auto_summarize_enabled: bool = True
+    auto_summarize_readme_only: bool = True
+    auto_summarize_after_sync: bool = True
+    auto_summarize_max_docs_per_source: int = 5
+    auto_summarize_readme: bool = True
+    auto_summarize_skill_docs: bool = True
+    auto_summarize_docs: bool = False
+    auto_skill_generate_enabled: bool = False
+
+    digest_daily_hour: int = 9
 
 
 @lru_cache

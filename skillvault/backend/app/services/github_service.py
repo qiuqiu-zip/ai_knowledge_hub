@@ -6,6 +6,7 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
+from urllib.parse import quote
 import httpx
 
 from app.core.config import settings
@@ -23,6 +24,46 @@ class GithubRateLimitError(GithubServiceError):
 
 class GithubService:
     BASE_URL = "https://api.github.com"
+    CANDIDATE_PREFIXES = ("docs/", "doc/", "skills/", "prompts/", "prompt/", "agents/", "workflows/", "examples/")
+    CANDIDATE_EXACT_NAMES = (
+        "readme.md",
+        "readme.zh.md",
+        "readme_zh.md",
+        "readme-cn.md",
+        "readme_cn.md",
+        "readme-zh_cn.md",
+        "skill.md",
+        "skills.md",
+        "prompt.md",
+        "prompts.md",
+        "changelog.md",
+        "contributing.md",
+    )
+    CANDIDATE_SUFFIXES = (".md", ".mdx", ".txt", ".rst", ".prompt")
+    PRIORITY_PREFIXES = ("docs/zh", "docs/zh-cn", "docs/cn", "docs/chinese", "readme", "docs/", "skills/", "prompts/", "agents/", "workflows/", "examples/")
+    PRIORITY_NAMES = (
+        "readme.zh.md",
+        "readme_zh.md",
+        "readme-cn.md",
+        "readme_cn.md",
+        "readme-zh_cn.md",
+        "readme.md",
+        "readme",
+        "docs/index.md",
+        "docs/overview.md",
+        "docs/getting-started.md",
+        "docs/quickstart.md",
+        "docs/installation.md",
+        "docs/tutorial.md",
+        "docs/guide.md",
+        "skill.md",
+        "skills.md",
+        "prompt.md",
+        "prompts.md",
+        "changelog.md",
+        "contributing.md",
+    )
+    SKIP_DIR_SEGMENTS = ("node_modules", ".git", "dist", "build", "vendor", ".venv", "target", "__pycache__")
 
     def __init__(self) -> None:
         headers = {
@@ -31,7 +72,7 @@ class GithubService:
         }
         if settings.github_token:
             headers["Authorization"] = f"Bearer {settings.github_token}"
-        self.client = httpx.Client(base_url=self.BASE_URL, headers=headers, timeout=30)
+        self.client = httpx.Client(base_url=self.BASE_URL, headers=headers, timeout=30, follow_redirects=True)
         self._last_request_at_monotonic: float | None = None
 
     @staticmethod
@@ -120,12 +161,10 @@ class GithubService:
         if remaining is None:
             return
         if remaining <= settings.github_rate_limit_remaining_threshold:
-            slept = self._sleep_until_reset(headers)
             logger.warning(
-                "GitHub remaining=%s <= threshold=%s, proactive sleep=%ss",
+                "GitHub remaining=%s <= threshold=%s, skip proactive sleep to avoid blocking worker queue",
                 remaining,
                 settings.github_rate_limit_remaining_threshold,
-                slept,
             )
 
     def _rate_limit_backoff_seconds(self, response: httpx.Response, attempt: int) -> int:
@@ -228,6 +267,24 @@ class GithubService:
         payload = self._github_request(f"/repos/{owner}/{repo}/commits/{branch}")
         return payload.get("sha")
 
+    def fetch_repo_tree(self, owner: str, repo: str, branch: str) -> list[dict]:
+        payload = self._github_request(f"/repos/{owner}/{repo}/git/trees/{branch}?recursive=1")
+        return payload.get("tree") or []
+
+    def fetch_file_content(self, owner: str, repo: str, path: str, branch: str) -> dict:
+        encoded_path = quote(path, safe="/")
+        payload = self._github_request(f"/repos/{owner}/{repo}/contents/{encoded_path}?ref={quote(branch, safe='')}")
+        encoded = payload.get("content", "")
+        content = base64.b64decode(encoded).decode("utf-8", errors="ignore") if encoded else ""
+        return {
+            "content": content,
+            "path": payload.get("path", path),
+            "sha": payload.get("sha"),
+            "size": payload.get("size", 0),
+            "download_url": payload.get("download_url"),
+            "html_url": payload.get("html_url"),
+        }
+
     @staticmethod
     def calculate_content_hash(content: str) -> str:
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
@@ -240,6 +297,8 @@ class GithubService:
         commit_sha = self.fetch_latest_commit_sha(owner, repo, branch)
         license_name = (meta.get("license") or {}).get("spdx_id") or self.fetch_license(owner, repo)
 
+        readme_path = readme.get("path", "README.md")
+        readme_meta = self.classify_document(path=readme_path, content=readme["content"])
         content_hash = self.calculate_content_hash(readme["content"])
         collected_at = datetime.now(timezone.utc).isoformat()
 
@@ -260,12 +319,177 @@ class GithubService:
             "content_hash": content_hash,
             "collected_at": collected_at,
             "repo": meta.get("full_name"),
-            "file_path": readme.get("path", "README.md"),
+            "file_path": readme_path,
             "source_url": meta.get("html_url"),
             "source_type": "github_api",
             "owner": owner,
+            "repo_name": repo,
             "metadata": {
                 "usage_scope": "personal_reference_only" if not license_name or license_name in {"NOASSERTION", "NONE"} else "license_defined",
                 "repo_url": repo_url,
+                **readme_meta,
             },
         }
+
+    @classmethod
+    def _is_useful_file_path(cls, path: str) -> bool:
+        lowered = path.lower()
+        if any(part in cls.SKIP_DIR_SEGMENTS for part in lowered.split("/")):
+            return False
+        if lowered.startswith("readme"):
+            return False
+        if lowered.endswith("/readme.md"):
+            return False
+        if lowered in cls.CANDIDATE_EXACT_NAMES:
+            return True
+        if lowered.startswith(cls.CANDIDATE_PREFIXES):
+            return lowered.endswith(cls.CANDIDATE_SUFFIXES)
+        return False
+
+    @classmethod
+    def _priority_of_path(cls, path: str) -> int:
+        lowered = path.lower()
+        if cls._is_chinese_path(lowered):
+            return 0
+        if lowered.startswith("readme"):
+            return 0
+        if lowered in cls.PRIORITY_NAMES:
+            return 1
+        if "/skill" in lowered or "/prompt" in lowered or lowered.startswith("skills/") or lowered.startswith("prompts/"):
+            return 2
+        for idx, prefix in enumerate(cls.PRIORITY_PREFIXES, start=2):
+            if lowered.startswith(prefix):
+                return idx
+        return 99
+
+    @staticmethod
+    def _is_chinese_path(lowered_path: str) -> bool:
+        keys = ("zh", "zh-cn", "zh_cn", "cn", "chinese", "中文")
+        return any(k in lowered_path for k in keys)
+
+    @staticmethod
+    def _detect_language(path: str, content: str) -> str:
+        lowered = (path or "").lower()
+        if GithubService._is_chinese_path(lowered):
+            return "zh"
+        if not content:
+            return "unknown"
+        total = len(content)
+        zh_count = sum(1 for ch in content if "\u4e00" <= ch <= "\u9fff")
+        if zh_count / max(total, 1) >= 0.2:
+            return "zh"
+        ascii_count = sum(1 for ch in content if ord(ch) < 128 and ch.isalpha())
+        if ascii_count / max(total, 1) >= 0.2:
+            return "en"
+        return "unknown"
+
+    @staticmethod
+    def _doc_type_from_path(path: str) -> str:
+        p = (path or "").lower()
+        base = p.split("/")[-1]
+        if base.startswith("readme"):
+            return "readme"
+        if "skill" in p:
+            return "skill"
+        if "prompt" in p:
+            return "prompt"
+        if "changelog" in p:
+            return "changelog"
+        if "contributing" in p:
+            return "contributing"
+        if p.startswith("examples/"):
+            return "example"
+        if p.startswith("docs/"):
+            if "api" in p or "reference" in p:
+                return "api"
+            if any(k in p for k in ("guide", "tutorial", "overview", "getting-started", "quickstart", "installation", "index")):
+                return "guide"
+            return "docs"
+        return "other"
+
+    @staticmethod
+    def _reason_for_doc(language: str, doc_type: str, priority: int) -> str:
+        if language == "zh" and priority == 0:
+            return "中文项目说明，优先推荐阅读"
+        if doc_type == "readme":
+            return "项目核心入口文档"
+        if doc_type in {"skill", "prompt"}:
+            return "可直接沉淀为 Skill/Prompt 资产"
+        if doc_type in {"guide", "docs"}:
+            return "项目使用说明与实践文档"
+        return "补充参考文档"
+
+    def classify_document(self, *, path: str, content: str) -> dict:
+        language = self._detect_language(path, content)
+        doc_type = self._doc_type_from_path(path)
+        priority = self._priority_of_path(path)
+        if doc_type == "api" and priority < 4:
+            priority = 4
+        is_recommended = priority <= 2 or (language == "zh" and priority <= 3)
+        return {
+            "language": language,
+            "doc_type": doc_type,
+            "priority": priority,
+            "is_recommended": is_recommended,
+            "reason": self._reason_for_doc(language, doc_type, priority),
+        }
+
+    def collect_useful_documents(self, base_data: dict) -> list[dict]:
+        owner = base_data["owner"]
+        repo_name = base_data["repo_name"]
+        branch = base_data["default_branch"] or "main"
+        license_name = base_data.get("license")
+        usage_scope = (base_data.get("metadata") or {}).get("usage_scope", "unknown")
+
+        tree = self.fetch_repo_tree(owner, repo_name, branch)
+        candidates = [
+            node
+            for node in tree
+            if node.get("type") == "blob"
+            and isinstance(node.get("path"), str)
+            and self._is_useful_file_path(node["path"])
+            and int(node.get("size") or 0) <= settings.github_sync_max_file_size_bytes
+        ]
+        candidates.sort(
+            key=lambda x: (
+                0 if settings.github_sync_prefer_chinese and self._is_chinese_path(str(x.get("path") or "").lower()) else 1,
+                self._priority_of_path(str(x.get("path") or "")),
+                str(x.get("path") or ""),
+            )
+        )
+        candidates = candidates[: settings.github_sync_max_files_per_source]
+
+        docs: list[dict] = []
+        for node in candidates:
+            path = node["path"]
+            try:
+                file_data = self.fetch_file_content(owner, repo_name, path, branch)
+                content = (file_data.get("content") or "").strip()
+                if not content:
+                    continue
+                doc_meta = self.classify_document(path=file_data.get("path") or path, content=content)
+                docs.append(
+                    {
+                        "title": f"{base_data['full_name']} {path}",
+                        "content": content,
+                        "source_type": "github_api",
+                        "source_url": file_data.get("download_url")
+                        or f"https://raw.githubusercontent.com/{owner}/{repo_name}/{branch}/{path}",
+                        "license": license_name,
+                        "repo": base_data["full_name"],
+                        "file_path": file_data.get("path") or path,
+                        "commit_sha": base_data.get("commit_sha"),
+                        "content_hash": self.calculate_content_hash(content),
+                        "metadata": {
+                            "usage_scope": usage_scope,
+                            "repo_url": base_data.get("html_url"),
+                            "file_html_url": file_data.get("html_url")
+                            or f"https://github.com/{owner}/{repo_name}/blob/{branch}/{path}",
+                            **doc_meta,
+                        },
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("skip file %s/%s path=%s because: %s", owner, repo_name, path, exc)
+                continue
+        return docs

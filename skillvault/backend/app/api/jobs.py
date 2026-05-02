@@ -29,11 +29,13 @@ def retry_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     job.status = models.JobStatus.pending
+    job.retry_count = 0
     job.error_message = None
     job.locked_by = None
     job.locked_at = None
     job.started_at = None
     job.finished_at = None
+    job.available_at = datetime.now(timezone.utc)
     job.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(job)

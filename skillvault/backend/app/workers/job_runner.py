@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db import models
 from app.workers.handlers import JOB_HANDLERS
+
+logger = logging.getLogger(__name__)
 
 
 class JobRunner:
@@ -62,6 +65,13 @@ class JobRunner:
         job.started_at = now
         db.commit()
         db.refresh(job)
+        logger.info(
+            "claimed job id=%s type=%s worker=%s payload=%s",
+            job.id,
+            job.job_type.value if hasattr(job.job_type, "value") else job.job_type,
+            self.worker_id,
+            job.payload,
+        )
         return job
 
     def run_job(self, db: Session, job: models.SyncJob) -> None:
@@ -74,11 +84,19 @@ class JobRunner:
             return
 
         try:
+            logger.info(
+                "running job id=%s type=%s source_id=%s document_id=%s",
+                job.id,
+                job.job_type.value if hasattr(job.job_type, "value") else job.job_type,
+                job.payload.get("source_id") if isinstance(job.payload, dict) else None,
+                job.payload.get("document_id") if isinstance(job.payload, dict) else None,
+            )
             handler(db, job.payload)
             job.status = models.JobStatus.success
             job.finished_at = datetime.now(timezone.utc)
             job.error_message = None
             db.commit()
+            logger.info("job success id=%s type=%s", job.id, job.job_type.value if hasattr(job.job_type, "value") else job.job_type)
         except Exception as exc:  # noqa: BLE001
             db.rollback()
             job = db.get(models.SyncJob, job.id)
@@ -94,3 +112,11 @@ class JobRunner:
             else:
                 job.status = models.JobStatus.failed
             db.commit()
+            logger.exception(
+                "job failed id=%s type=%s retry=%s/%s error=%s",
+                job.id,
+                job.job_type.value if hasattr(job.job_type, "value") else job.job_type,
+                job.retry_count,
+                job.max_retry,
+                job.error_message,
+            )
