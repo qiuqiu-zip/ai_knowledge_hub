@@ -1,0 +1,46 @@
+STATUS: READY_TO_EXECUTE
+
+SCOPE_POLICY:
+{
+  "mode": "restricted",
+  "allowed_paths": ["skillvault/frontend/src/views/LoginView.vue"],
+  "forbidden_paths": [".env", ".env.*", "__pycache__/", "*.pyc", "dist/", "frontend/dist/", "node_modules/", ".idea/", ".ai-dev-supervisor/", "skillvault/backend/", "skillvault/frontend/src/router/", "skillvault/frontend/src/store/", "skillvault/frontend/src/api/", "skillvault/frontend/src/locale/", "skillvault/frontend/src/App.vue", "skillvault/frontend/src/main.ts", "skillvault/frontend/src/permission.ts", "skillvault/frontend/src/utils/", "skillvault/frontend/src/components/"],
+  "confidence": "high",
+  "reason": "User explicitly specified only LoginView.vue UI and scoped style changes. No business logic, no other files, no backend, no router, no store, no i18n keys, no auth guard modifications."
+}
+
+TASK_PROMPT:
+You are an AI executor. Your task is to modify ONLY the file `skillvault/frontend/src/views/LoginView.vue` to improve its login page UI.
+
+## Constraints (strictly enforced):
+1. **Only modify**: `skillvault/frontend/src/views/LoginView.vue`
+2. **Do NOT modify**: any other file, including but not limited to: backend code, router, store, API layer, i18n/locale files, permission guards, App.vue, main.ts, any component outside LoginView.vue.
+3. **Do NOT change**: login API call logic, authentication logic, routing logic, permission guard logic, i18n key names or usage, state management logic, any backend code.
+4. **Do NOT add/remove**: any interactive elements that change functionality. Keep: language switcher, username input, password input, login button, top alert bar.
+5. **Do NOT introduce**: new dependencies, new npm packages, new imports from outside the existing project scope.
+6. **Do NOT output**: secrets, tokens, passwords, environment variables.
+7. **Do NOT commit or push** any changes.
+
+## Goal:
+Transform the login page UI into a **modern, clean, professional enterprise SaaS login page** using Vue 3 + Element Plus. The page should look polished, with proper spacing, typography, color scheme, and responsive layout. Keep all existing functionality intact.
+
+## Acceptance Criteria:
+1. The login page has a modern, clean, enterprise SaaS aesthetic.
+2. All existing elements are preserved: language switcher, username input, password input, login button, top alert bar.
+3. All existing functionality works exactly as before (login API call, validation, i18n, etc.).
+4. Scoped styles are used; no global style leakage.
+5. The layout is responsive and centered.
+6. Visual improvements include: better spacing, refined colors, subtle shadows, proper font sizing, clean card/container design.
+7. No new external CSS or JS libraries are introduced.
+8. The file compiles without errors (`cd frontend && npm run build` passes).
+
+## Instructions:
+1. Read the current content of `skillvault/frontend/src/views/LoginView.vue`.
+2. Rewrite the `<template>` and `<style scoped>` sections to achieve the goal.
+3. Keep the `<script>` section **exactly as is** — do not modify any JavaScript/TypeScript logic, imports, data, methods, computed, watch, lifecycle hooks, or any other script content.
+4. Ensure the template references the same data properties, methods, and computed properties as the original script.
+5. Ensure scoped styles do not affect other components.
+6. Output the final file content.
+
+## Test:
+After modification, run `cd frontend && npm run build` to verify no build errors.

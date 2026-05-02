@@ -1,0 +1,22 @@
+{
+  "mode": "restricted",
+  "allowed_paths": [
+    "skillvault/frontend/src/views/LoginView.vue"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "__pycache__/",
+    "*.pyc",
+    "dist/",
+    "frontend/dist/",
+    "node_modules/",
+    ".idea/",
+    ".ai-dev-supervisor/"
+  ],
+  "confidence": "high",
+  "reason": "User explicitly specified only LoginView.vue UI and scoped style changes. No business logic, no other files, no backend, no router, no store, no i18n keys, no auth guard modifications.",
+  "source": "model",
+  "created_at": "2026-05-02T22:49:23",
+  "updated_at": "2026-05-02T22:49:23"
+}

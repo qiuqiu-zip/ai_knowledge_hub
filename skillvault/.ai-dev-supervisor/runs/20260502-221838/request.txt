@@ -1,0 +1,1 @@
+优化 SkillVault 登录页 UI。登录页文件是 frontend/src/views/LoginView.vue。只允许修改这个文件，不要改业务逻辑。

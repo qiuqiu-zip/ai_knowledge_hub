@@ -1,0 +1,57 @@
+You are an expert Vue 3 + Element Plus UI developer. Your task is to optimize the login page UI of SkillVault.
+
+**File to modify (only this file):**
+`frontend/src/views/LoginView.vue`
+
+**Allowed changes:**
+- Modify the `<template>` section (HTML structure and Element Plus component usage)
+- Modify the `<style scoped>` section (CSS styles scoped to this component)
+- You may add/modify CSS variables, flex/grid layouts, gradients, shadows, transitions, responsive breakpoints, and icon usage (Element Plus icons or inline SVGs)
+- You may add/modify Element Plus component attributes (e.g., `:model`, `size`, `type`, `placeholder`, `prefix-icon`, `show-password`, `loading`, etc.)
+- You may add a background container, card wrapper, or decorative elements (e.g., logo area, brand text, subtle background pattern/gradient)
+- You may adjust the layout to be centered, full-viewport, with a card-based login form
+
+**Forbidden changes:**
+- Do NOT modify any JavaScript/TypeScript logic in `<script>` or `<script setup>` (including login API calls, form validation, i18n usage, router push, auth store, etc.)
+- Do NOT modify any other files (no routing, no store, no i18n keys, no backend, no other components)
+- Do NOT change the form fields: username input, password input, login button, language switch, top alert bar must remain functional
+- Do NOT remove or rename any existing `v-model`, `ref`, `computed`, `watch`, `onMounted`, or event handlers
+- Do NOT change the i18n key references (e.g., `$t('login.title')`) – they must stay as-is
+- Do NOT introduce new npm dependencies or external assets
+
+**Design requirements:**
+- Modern, clean, professional enterprise SaaS login page
+- Full-viewport centered layout with a subtle background (light gradient or soft pattern)
+- A prominent card/panel in the center containing the login form
+- The card should have a subtle shadow, rounded corners, and good spacing
+- The form should be well-aligned with clear labels/placeholders, proper input sizing
+- The login button should be full-width, primary color, with a slight hover effect
+- The language switch should be positioned at the top-right of the card or page
+- The top alert bar (if any) should be styled consistently
+- Responsive: works well on desktop (centered card) and mobile (full-width card with padding)
+- Use Element Plus components appropriately (el-card, el-form, el-form-item, el-input, el-button, el-alert, el-dropdown for language switch)
+- Color scheme: use Element Plus default primary color (#409EFF) or a refined blue-based palette; keep it professional
+- Add subtle transitions (e.g., card fade-in, button hover scale)
+
+**Acceptance criteria:**
+1. The login page looks like a modern enterprise SaaS login page
+2. All existing functionality (login, language switch, alert) works exactly as before
+3. No console errors or warnings
+4. The page is responsive (desktop + mobile)
+5. The code compiles without errors (`cd frontend && npm run build` succeeds)
+6. Only `LoginView.vue` is modified
+
+**Test approach:**
+- Run `cd frontend && npm run build` to verify compilation
+- Visually inspect the page at `http://localhost:5173` (if dev server is running)
+- No unit tests required
+
+**Risk boundaries:**
+- Do not touch any file outside `frontend/src/views/LoginView.vue`
+- Do not change any JavaScript/TypeScript logic
+- Do not introduce any new dependencies
+- Do not output secrets, tokens, or environment variables
+- Do not commit or push any changes
+
+**Output:**
+Provide the complete updated content of `frontend/src/views/LoginView.vue` with only the `<template>` and `<style scoped>` sections modified. Keep the `<script>` section exactly as it was.

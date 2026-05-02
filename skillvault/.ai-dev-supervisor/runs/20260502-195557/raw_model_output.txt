@@ -1,0 +1,52 @@
+STATUS: READY_TO_EXECUTE
+
+TASK_PROMPT:
+You are a frontend UI specialist. Modify only the login page at `frontend/src/views/LoginView.vue` to achieve a modern, clean, enterprise SaaS login page. Do NOT change any business logic, API calls, form bindings, validation, auth store, router, i18n keys, or add any new dependencies.
+
+**Allowed scope:**
+- `frontend/src/views/LoginView.vue` (template, script, scoped style)
+- Only modify presentation structure and CSS within this single file.
+
+**Forbidden scope (strictly prohibited):**
+- No changes to login submission logic, form field bindings, form validation, API client, auth store, router, permission guards, backend, or any other file.
+- No new features: no register, forgot password, remember me, captcha, third-party login, phone login, QR login, MFA, etc.
+- No new dependencies.
+- No commit, no push.
+- No output or writing of secrets.
+- Do not touch: `__pycache__/`, `*.pyc`, `dist/`, `node_modules/`, `.env`, `.idea/`, `.ai-dev-supervisor/`.
+
+**UI design goals:**
+1. Light background (slight light gray or light blue-gray gradient).
+2. Centered login card with moderate width, natural border-radius, subtle shadow, comfortable padding.
+3. Brand header: "登录 SkillVault" as main title, a concise subtitle like "AI 知识资产库".
+4. Vertical form layout: labels, inputs, button all same width.
+5. Inputs: uniform height, border-radius, border color, hover/focus states.
+6. Login button: blue primary style, full width, proper hover/active/loading states.
+7. Language switcher: must keep, place it in a less intrusive position (e.g., top-right of the card or page).
+8. Top notification bar: must keep, but reduce visual distraction (e.g., smaller, less prominent).
+9. Responsive: desktop and smaller screens, no horizontal scroll, no overlap, no content clipping.
+
+**Implementation rules:**
+- Read the current file content first.
+- Only modify the template and scoped `<style>` block.
+- Keep all existing `v-model`, `@click`, `:loading`, `:disabled`, `ref`, `watch`, `computed`, `i18n` usage exactly as is.
+- Do not remove or rename any existing DOM elements that have `ref`, `v-model`, or event handlers.
+- You may wrap, restructure, or add new wrapper elements for layout/styling purposes.
+- You may add new CSS classes/variables inside the scoped style block.
+- Use Element Plus classes and utility classes where possible.
+- Ensure the language switcher (`locale-switcher` or similar) is still functional and visible.
+- Ensure the top notification bar (if any) is still present but visually toned down.
+
+**Test expectations:**
+- Run `cd frontend && npm run build` to verify no build errors.
+- No TypeScript or lint errors introduced.
+- The login page should render correctly in a browser.
+
+**Risk reminders:**
+- Do not break existing form bindings or validation.
+- Do not remove or alter any `v-if`, `v-show`, `v-for`, `v-model`, `@click`, `:disabled`, `:loading` on existing interactive elements.
+- Do not change any `$t(...)` calls or i18n keys.
+- Do not add any new imports or dependencies.
+- If you are unsure about any existing code, preserve it exactly.
+
+Proceed with the modification now.

@@ -1,0 +1,33 @@
+{
+  "mode": "restricted",
+  "allowed_paths": [
+    "backend/README.md",
+    "backend/alembic.ini",
+    "backend/pyproject.toml",
+    "backend/requirements.txt",
+    "frontend/index.html",
+    "frontend/nginx.conf",
+    "frontend/package-lock.json",
+    "frontend/package.json",
+    "frontend/pnpm-lock.yaml",
+    "frontend/src/views/LoginView.vue",
+    "frontend/tsconfig.json",
+    "frontend/vite.config"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "__pycache__/",
+    "*.pyc",
+    "dist/",
+    "frontend/dist/",
+    "node_modules/",
+    ".idea/",
+    ".ai-dev-supervisor/"
+  ],
+  "source": "heuristic",
+  "confidence": "medium",
+  "reason": "Inferred from request/task prompt text.",
+  "created_at": "2026-05-02T22:18:17",
+  "updated_at": "2026-05-02T22:18:17"
+}
