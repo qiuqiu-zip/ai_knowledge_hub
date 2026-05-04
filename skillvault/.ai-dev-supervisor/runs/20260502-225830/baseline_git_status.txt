@@ -1,13 +1,4 @@
-?? .ai-dev-supervisor/runs/20260502-191257/
-?? .ai-dev-supervisor/runs/20260502-191337/
-?? .ai-dev-supervisor/runs/20260502-193454/
-?? .ai-dev-supervisor/runs/20260502-195230/
-?? .ai-dev-supervisor/runs/20260502-195510/
-?? .ai-dev-supervisor/runs/20260502-195557/
-?? .ai-dev-supervisor/runs/20260502-205112/
-?? .ai-dev-supervisor/runs/20260502-210458/
-?? .ai-dev-supervisor/runs/20260502-221816/
-?? .ai-dev-supervisor/runs/20260502-221838/
-?? .ai-dev-supervisor/runs/20260502-224755/
-?? .ai-dev-supervisor/runs/20260502-224910/
-?? .ai-dev-supervisor/runs/20260502-225830/
+ M .ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch
+ M .ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt
+ M .ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json
+?? .ai-dev-supervisor/runs/20260502-225830/iterations/

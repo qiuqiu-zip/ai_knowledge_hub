@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.jobs import enqueue_job
@@ -62,10 +62,28 @@ def _find_existing_pending_or_running_job(db: Session, dedupe_key: str) -> model
     )
 
 
-@router.get("", response_model=list[SourceRead])
-def list_sources(db: Session = Depends(get_db)):
-    rows = list(db.scalars(select(models.Source).order_by(models.Source.created_at.desc())).all())
-    return [_source_to_dict(row) for row in rows]
+@router.get("")
+def list_sources(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    total = db.scalar(select(func.count()).select_from(models.Source)) or 0
+    offset = (page - 1) * page_size
+    rows = list(
+        db.scalars(
+            select(models.Source)
+            .order_by(models.Source.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        ).all()
+    )
+    return {
+        "items": [_source_to_dict(row) for row in rows],
+        "total": int(total),
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("", response_model=SourceRead)

@@ -31,7 +31,11 @@ def import_github_repo(payload: GithubImportRequest, db: Session = Depends(get_d
 
 @router.get("/repos", response_model=list[GithubRepoRead])
 def list_github_repos(db: Session = Depends(get_db)):
-    return list(db.scalars(select(models.GithubRepo).order_by(models.GithubRepo.created_at.desc())).all())
+    return list(
+        db.scalars(
+            select(models.GithubRepo).order_by(models.GithubRepo.stars.desc(), models.GithubRepo.created_at.desc())
+        ).all()
+    )
 
 
 @router.get("/repos/{repo_id}", response_model=GithubRepoRead)

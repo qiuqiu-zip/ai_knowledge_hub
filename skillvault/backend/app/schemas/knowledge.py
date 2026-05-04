@@ -14,5 +14,9 @@ class KnowledgeRead(BaseModel):
     category: str | None
     quality_score: int
     visibility: str
+    repo: str | None = None
+    file_path: str | None = None
+    source_url: str | None = None
+    document_title: str | None = None
     created_at: datetime
     updated_at: datetime

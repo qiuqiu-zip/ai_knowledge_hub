@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import DOMPurify from 'dompurify'
 import 'github-markdown-css/github-markdown.css'
 import 'highlight.js/styles/github.css'
 import { computed } from 'vue'
@@ -18,6 +19,7 @@ const md = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: true,
+  breaks: true,
   highlight(str, lang) {
     if (lang && hljs.getLanguage(lang)) {
       try {
@@ -43,7 +45,8 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
 const renderedHtml = computed(() => {
   const text = props.content?.trim() || ''
   if (!text) return ''
-  return md.render(text)
+  const unsafeHtml = md.render(text)
+  return DOMPurify.sanitize(unsafeHtml)
 })
 </script>
 

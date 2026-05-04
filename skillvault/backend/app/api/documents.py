@@ -1,6 +1,6 @@
 import hashlib
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.api.jobs import enqueue_job
@@ -61,10 +61,46 @@ def _enqueue_document_job(
     }
 
 
-@router.get("", response_model=list[DocumentRead])
-def list_documents(db: Session = Depends(get_db)):
-    rows = list(db.scalars(select(models.SourceDocument).order_by(models.SourceDocument.created_at.desc())).all())
-    return [_document_to_dict(row) for row in rows]
+@router.get("")
+def list_documents(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    repo: str | None = Query(default=None),
+    doc_type: str | None = Query(default=None),
+    language: str | None = Query(default=None),
+    recommended: bool | None = Query(default=None),
+    has_summary: bool | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    stmt = select(models.SourceDocument)
+    if repo and repo.strip():
+        stmt = stmt.where(models.SourceDocument.repo.ilike(f"%{repo.strip()}%"))
+    if doc_type:
+        stmt = stmt.where(models.SourceDocument.metadata_json["doc_type"].astext == doc_type)
+    if language:
+        stmt = stmt.where(models.SourceDocument.metadata_json["language"].astext == language)
+    if recommended is not None:
+        stmt = stmt.where(models.SourceDocument.metadata_json["is_recommended"].astext == ("true" if recommended else "false"))
+    if has_summary is not None:
+        summary_expr = models.SourceDocument.metadata_json["summary"].astext
+        if has_summary:
+            stmt = stmt.where(and_(summary_expr.is_not(None), summary_expr != ""))
+        else:
+            stmt = stmt.where((summary_expr.is_(None)) | (summary_expr == ""))
+
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    offset = (page - 1) * page_size
+    rows = list(
+        db.scalars(
+            stmt.order_by(models.SourceDocument.created_at.desc()).offset(offset).limit(page_size)
+        ).all()
+    )
+    return {
+        "items": [_document_to_dict(row) for row in rows],
+        "total": int(total),
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.get("/{doc_id}", response_model=DocumentRead)

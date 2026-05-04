@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.jobs import enqueue_job
@@ -30,10 +30,26 @@ def _digest_to_dict(row: models.DailyDigest) -> dict:
     }
 
 
-@router.get("", response_model=list[DailyDigestRead])
-def list_digests(db: Session = Depends(get_db)):
-    rows = list(db.scalars(select(models.DailyDigest).order_by(models.DailyDigest.digest_date.desc())).all())
-    return [_digest_to_dict(row) for row in rows]
+@router.get("")
+def list_digests(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    stmt = select(models.DailyDigest)
+    total = db.scalar(select(func.count()).select_from(models.DailyDigest)) or 0
+    offset = (page - 1) * page_size
+    rows = list(
+        db.scalars(
+            stmt.order_by(models.DailyDigest.digest_date.desc()).offset(offset).limit(page_size)
+        ).all()
+    )
+    return {
+        "items": [_digest_to_dict(row) for row in rows],
+        "total": int(total),
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.get("/{digest_id}", response_model=DailyDigestRead)

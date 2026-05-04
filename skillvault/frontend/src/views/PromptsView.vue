@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import api from '../api/client'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
+import PaginationBar from '../components/PaginationBar.vue'
 
 interface PromptItem {
   id: number
@@ -31,6 +32,7 @@ const { t } = useI18n()
 const filters = reactive({
   keyword: '',
 })
+const pagination = reactive({ page: 1, pageSize: 5, total: 0 })
 
 const createForm = reactive({
   title: '',
@@ -75,18 +77,31 @@ function resetCreateForm() {
   createForm.is_favorite = false
 }
 
+function sourceTypeLabel(sourceType?: string) {
+  const key = sourceType || 'unknown'
+  const mapped = t(`sourceTypes.${key}`)
+  return mapped === `sourceTypes.${key}` ? t('sourceTypes.unknown') : mapped
+}
+
 async function loadPrompts() {
   listLoading.value = true
   try {
     const params: Record<string, any> = {}
     if (filters.keyword.trim()) params.keyword = filters.keyword.trim()
+    params.page = pagination.page
+    params.page_size = pagination.pageSize
     const { data } = await api.get('/api/prompts', { params })
-    prompts.value = data
+    prompts.value = Array.isArray(data) ? data : (data.items || [])
+    pagination.total = Array.isArray(data) ? prompts.value.length : Number(data.total || 0)
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || 'Load prompts failed')
+    ElMessage.error(error?.response?.data?.detail || '加载提示词失败')
   } finally {
     listLoading.value = false
+  }
+  if (pagination.page > 1 && prompts.value.length === 0 && pagination.total > 0) {
+    pagination.page -= 1
+    await loadPrompts()
   }
 }
 
@@ -94,11 +109,11 @@ async function createPrompt() {
   const title = createForm.title.trim()
   const content = createForm.content.trim()
   if (!title) {
-    ElMessage.warning(`${t('prompts.titleLabel')} required`)
+    ElMessage.warning(`请输入${t('prompts.titleLabel')}`)
     return
   }
   if (!content) {
-    ElMessage.warning(`${t('prompts.contentLabel')} required`)
+    ElMessage.warning(`请输入${t('prompts.contentLabel')}`)
     return
   }
 
@@ -116,7 +131,7 @@ async function createPrompt() {
     ElMessage.success(t('prompts.createPrompt'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || 'Create failed')
+    ElMessage.error(error?.response?.data?.detail || '创建失败')
   } finally {
     creating.value = false
   }
@@ -144,11 +159,11 @@ async function saveEdit() {
   const title = editForm.title.trim()
   const content = editForm.content.trim()
   if (!title) {
-    ElMessage.warning(`${t('prompts.titleLabel')} required`)
+    ElMessage.warning(`请输入${t('prompts.titleLabel')}`)
     return
   }
   if (!content) {
-    ElMessage.warning(`${t('prompts.contentLabel')} required`)
+    ElMessage.warning(`请输入${t('prompts.contentLabel')}`)
     return
   }
 
@@ -165,7 +180,7 @@ async function saveEdit() {
     ElMessage.success(t('common.save'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || 'Save failed')
+    ElMessage.error(error?.response?.data?.detail || '保存失败')
   } finally {
     savingEdit.value = false
   }
@@ -206,13 +221,13 @@ async function copyContent(content: string) {
       ElMessage.success(t('documents.linkCopied'))
       return
     }
-    ElMessage.error('Copy failed, please copy manually')
+    ElMessage.error('复制失败，请手动复制')
   }
 }
 
 async function deleteOne(row: PromptItem) {
   try {
-    await ElMessageBox.confirm(`Delete Prompt #${row.id}?`, t('prompts.deleteConfirmTitle'), {
+    await ElMessageBox.confirm(`确认删除提示词 #${row.id} 吗？`, t('prompts.deleteConfirmTitle'), {
       type: 'warning',
     })
   } catch {
@@ -226,7 +241,7 @@ async function deleteOne(row: PromptItem) {
     ElMessage.success(t('common.delete'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || 'Delete failed')
+    ElMessage.error(error?.response?.data?.detail || '删除失败')
   } finally {
     deleting.value = false
   }
@@ -240,12 +255,12 @@ const selectedIds = computed(() => selectedRows.value.map((r) => r.id))
 
 async function batchDelete() {
   if (selectedIds.value.length === 0) {
-    ElMessage.warning('Please select prompts first')
+    ElMessage.warning('请先选择要删除的提示词')
     return
   }
 
   try {
-    await ElMessageBox.confirm(`Delete ${selectedIds.value.length} prompts?`, t('prompts.deleteConfirmTitle'), {
+    await ElMessageBox.confirm(`确认删除 ${selectedIds.value.length} 条提示词吗？`, t('prompts.deleteConfirmTitle'), {
       type: 'warning',
     })
   } catch {
@@ -260,7 +275,7 @@ async function batchDelete() {
     ElMessage.success(t('prompts.batchDelete'))
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || 'Batch delete failed')
+    ElMessage.error(error?.response?.data?.detail || '批量删除失败')
   } finally {
     batchDeleting.value = false
   }
@@ -274,18 +289,20 @@ async function toggleFavorite(row: PromptItem) {
     row.is_favorite = !!data.is_favorite
   } catch (error: any) {
     console.error(error)
-    ElMessage.error(error?.response?.data?.detail || 'Favorite toggle failed')
+    ElMessage.error(error?.response?.data?.detail || '收藏切换失败')
   } finally {
     togglingFavorite[row.id] = false
   }
 }
 
 function doSearch() {
+  pagination.page = 1
   loadPrompts()
 }
 
 function resetSearch() {
   filters.keyword = ''
+  pagination.page = 1
   loadPrompts()
 }
 
@@ -293,11 +310,7 @@ onMounted(loadPrompts)
 </script>
 
 <template>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
-    <div>
-      <h2 style="margin: 0">{{ t('prompts.title') }}</h2>
-      <p style="margin: 4px 0 0; color: #6b7280">{{ t('prompts.subtitle') }}</p>
-    </div>
+  <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 12px">
     <el-space>
       <el-button type="primary" @click="openCreateDialog">{{ t('prompts.newPrompt') }}</el-button>
       <el-button :loading="listLoading" @click="loadPrompts">{{ t('common.refresh') }}</el-button>
@@ -324,8 +337,9 @@ onMounted(loadPrompts)
     </div>
   </el-card>
 
-  <el-card>
-    <el-table :data="prompts" v-loading="listLoading" @selection-change="onSelectionChange">
+  <el-card class="prompts-panel">
+    <div class="list-shell">
+      <el-table :data="prompts" v-loading="listLoading" height="100%" @selection-change="onSelectionChange">
       <el-table-column type="selection" width="50" />
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="title" :label="t('prompts.titleLabel')" min-width="180" />
@@ -354,7 +368,7 @@ onMounted(loadPrompts)
           </el-button>
         </template>
       </el-table-column>
-      <el-table-column label="Created At" width="170">
+      <el-table-column label="创建时间" width="170">
         <template #default="scope">{{ formatDate(scope.row.created_at) }}</template>
       </el-table-column>
       <el-table-column :label="t('common.actions')" width="300">
@@ -368,15 +382,24 @@ onMounted(loadPrompts)
         </template>
       </el-table-column>
       <template #empty>
-        <el-empty :description="t('prompts.newPrompt')" />
+        <el-empty description="暂无提示词，请先创建。" />
       </template>
-    </el-table>
+      </el-table>
+    </div>
+    <PaginationBar
+      v-model:current-page="pagination.page"
+      v-model:page-size="pagination.pageSize"
+      :page-sizes="[5, 10, 20, 50]"
+      :total="pagination.total"
+      @update:current-page="loadPrompts"
+      @update:page-size="loadPrompts"
+    />
   </el-card>
 
   <el-dialog v-model="createDialogVisible" :title="t('prompts.newPrompt')" width="900px">
     <el-form label-width="80px">
       <el-form-item :label="t('prompts.titleLabel')">
-        <el-input v-model="createForm.title" placeholder="Prompt title" />
+        <el-input v-model="createForm.title" placeholder="请输入标题" />
       </el-form-item>
       <el-form-item :label="t('prompts.contentLabel')">
         <el-input
@@ -388,7 +411,7 @@ onMounted(loadPrompts)
         />
       </el-form-item>
       <el-form-item :label="t('prompts.tagsLabel')">
-        <el-input v-model="createForm.tagsText" placeholder="java, debug, ai" />
+        <el-input v-model="createForm.tagsText" placeholder="例如：java, debug, ai" />
       </el-form-item>
       <el-form-item :label="t('prompts.favorite')">
         <el-checkbox v-model="createForm.is_favorite">{{ t('prompts.favorite') }}</el-checkbox>
@@ -408,9 +431,9 @@ onMounted(loadPrompts)
             <el-descriptions-item :label="t('prompts.titleLabel')">{{ activePrompt.title }}</el-descriptions-item>
             <el-descriptions-item :label="t('prompts.favorite')">{{ activePrompt.is_favorite ? '★' : '☆' }}</el-descriptions-item>
             <el-descriptions-item :label="t('prompts.tagsLabel')">{{ (activePrompt.tags || []).join(', ') || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="Source">{{ activePrompt.source_type || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="Created At">{{ formatDate(activePrompt.created_at) }}</el-descriptions-item>
-            <el-descriptions-item label="Updated At">{{ formatDate(activePrompt.updated_at) }}</el-descriptions-item>
+            <el-descriptions-item label="来源">{{ sourceTypeLabel(activePrompt.source_type) }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ formatDate(activePrompt.created_at) }}</el-descriptions-item>
+            <el-descriptions-item label="更新时间">{{ formatDate(activePrompt.updated_at) }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
         <div style="overflow-y: auto; max-height: calc(85vh - 190px)">
@@ -440,7 +463,7 @@ onMounted(loadPrompts)
         />
       </el-form-item>
       <el-form-item :label="t('prompts.tagsLabel')">
-        <el-input v-model="editForm.tagsText" placeholder="java, debug, ai" />
+        <el-input v-model="editForm.tagsText" placeholder="例如：java, debug, ai" />
       </el-form-item>
       <el-form-item :label="t('prompts.favorite')">
         <el-checkbox v-model="editForm.is_favorite">{{ t('prompts.favorite') }}</el-checkbox>
@@ -458,5 +481,25 @@ onMounted(loadPrompts)
   min-height: 420px;
   font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
   line-height: 1.65;
+}
+
+.prompts-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.list-shell {
+  height: calc(100vh - 430px);
+  max-height: calc(100vh - 370px);
+  min-height: 260px;
+  overflow: auto;
+}
+
+@media (max-width: 960px) {
+  .list-shell {
+    height: auto;
+    max-height: 65vh;
+    min-height: 220px;
+  }
 }
 </style>

@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
@@ -14,6 +15,208 @@ from app.services.llm_service import LLMService
 from app.services.skill_generator import SkillGeneratorService
 
 logger = logging.getLogger(__name__)
+
+
+_BADGE_MD_RE = re.compile(r"!\[[^\]]*\]\([^)]+\)")
+_BADGE_LINK_RE = re.compile(r"\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)")
+_CODE_FENCE_RE = re.compile(r"```.*?```", flags=re.DOTALL)
+_MD_HEADER_RE = re.compile(r"^\s{0,3}#{1,6}\s*", flags=re.MULTILINE)
+_MD_TABLE_LINE_RE = re.compile(r"^\s*\|.*\|\s*$", flags=re.MULTILINE)
+_MULTI_SPACE_RE = re.compile(r"\s+")
+_MARKDOWN_NOISE_RE = re.compile(r"^\s*(npm|pip|curl|wget|docker|go|mvn|gradle)\b", flags=re.IGNORECASE)
+
+
+def _clean_digest_summary(text: str | None) -> str:
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+    s = _CODE_FENCE_RE.sub(" ", raw)
+    s = _BADGE_LINK_RE.sub(" ", s)
+    s = _BADGE_MD_RE.sub(" ", s)
+    s = _MD_HEADER_RE.sub("", s)
+    s = _MD_TABLE_LINE_RE.sub(" ", s)
+    lines = []
+    for line in s.splitlines():
+        x = line.strip()
+        if not x:
+            continue
+        if x.startswith(("```", "    ")):
+            continue
+        if _MARKDOWN_NOISE_RE.match(x):
+            continue
+        if x.startswith(("- ", "* ", "+ ", "1. ", "2. ", "3. ")):
+            x = x[2:].strip() if len(x) > 2 else ""
+        if x:
+            lines.append(x)
+    s = " ".join(lines)
+    s = _MULTI_SPACE_RE.sub(" ", s).strip(" -#|")
+    if len(s) > 160:
+        s = s[:160].rstrip() + "..."
+    return s
+
+
+def _normalize_github_links(source_url: str | None, repo: str | None, file_path: str | None) -> dict:
+    s = (source_url or "").strip()
+    repo_name = (repo or "").strip().strip("/")
+    file_name = ((file_path or "").strip().split("/")[-1] if file_path else "").lower()
+    repository_url = ""
+    file_url = ""
+    display_url = ""
+    link_label = "查看来源"
+
+    if s.startswith("https://raw.githubusercontent.com/"):
+        rest = s.removeprefix("https://raw.githubusercontent.com/")
+        parts = rest.split("/")
+        if len(parts) >= 4:
+            owner, r, branch = parts[0], parts[1], parts[2]
+            path = "/".join(parts[3:])
+            repository_url = f"https://github.com/{owner}/{r}"
+            file_url = f"{repository_url}/blob/{branch}/{path}" if path else repository_url
+            display_url = file_url or repository_url
+            link_label = "查看README" if path.lower().endswith("readme.md") else "查看文件"
+
+    elif s.startswith("https://github.com/"):
+        no_query = s.split("?", 1)[0].split("#", 1)[0].rstrip("/")
+        parts = no_query.removeprefix("https://github.com/").split("/")
+        if len(parts) >= 2:
+            owner, r = parts[0], parts[1]
+            repository_url = f"https://github.com/{owner}/{r}"
+            if len(parts) >= 5 and parts[2] == "blob":
+                file_url = no_query
+                display_url = file_url
+                link_label = "查看README" if no_query.lower().endswith("readme.md") else "查看文件"
+            else:
+                display_url = repository_url
+                link_label = "查看仓库"
+
+    if not repository_url and repo_name and "/" in repo_name:
+        repository_url = f"https://github.com/{repo_name}"
+        if file_path:
+            if file_path.lower().startswith("readme"):
+                link_label = "查看README"
+            else:
+                link_label = "查看文件"
+        else:
+            link_label = "查看仓库"
+
+    # Conservative file URL fallback: only if source_url already points to github repo and has blob,
+    # otherwise avoid fabricating branch.
+    if not file_url and s.startswith("https://github.com/") and "/blob/" in s:
+        file_url = s.split("?", 1)[0].split("#", 1)[0]
+
+    if not display_url:
+        if repository_url and link_label == "查看仓库":
+            display_url = repository_url
+        elif file_url:
+            display_url = file_url
+        elif repository_url:
+            display_url = repository_url
+        else:
+            display_url = s
+
+    if not link_label or link_label == "查看来源":
+        if file_name == "readme.md":
+            link_label = "查看README"
+        elif display_url == repository_url and repository_url:
+            link_label = "查看仓库"
+        elif file_url:
+            link_label = "查看文件"
+        else:
+            link_label = "查看来源"
+
+    return {
+        "repository_url": repository_url or None,
+        "file_url": file_url or None,
+        "display_url": display_url or None,
+        "link_label": link_label,
+    }
+
+
+def _infer_repo_key(repo: str | None, source_url: str | None, repository_url: str | None, file_url: str | None, title: str | None) -> str:
+    r = (repo or "").strip().strip("/")
+    if r and "/" in r:
+        return r.lower()
+    for u in [repository_url, file_url, source_url]:
+        x = (u or "").strip()
+        if x.startswith("https://github.com/"):
+            parts = x.removeprefix("https://github.com/").split("/")
+            if len(parts) >= 2:
+                return f"{parts[0]}/{parts[1]}".lower()
+        if x.startswith("https://raw.githubusercontent.com/"):
+            parts = x.removeprefix("https://raw.githubusercontent.com/").split("/")
+            if len(parts) >= 2:
+                return f"{parts[0]}/{parts[1]}".lower()
+    fallback = (source_url or title or "unknown").strip().lower()
+    return f"fallback:{fallback}" if fallback else "fallback:unknown"
+
+
+def _build_project_groups(recommended_documents: list[dict]) -> list[dict]:
+    groups: dict[str, dict] = {}
+    for rec in recommended_documents:
+        key = _infer_repo_key(
+            rec.get("repo"),
+            rec.get("source_url"),
+            rec.get("repository_url"),
+            rec.get("file_url"),
+            rec.get("title"),
+        )
+        g = groups.get(key)
+        if not g:
+            repo_name = (rec.get("repo") or "").strip()
+            owner = ""
+            project_name = repo_name
+            if "/" in repo_name:
+                owner, project_name = repo_name.split("/", 1)
+            elif rec.get("repository_url", "").startswith("https://github.com/"):
+                parts = rec["repository_url"].removeprefix("https://github.com/").split("/")
+                if len(parts) >= 2:
+                    owner, project_name = parts[0], parts[1]
+                    repo_name = f"{owner}/{project_name}"
+            g = {
+                "repo": repo_name or None,
+                "project_name": project_name or None,
+                "owner": owner or None,
+                "title": repo_name or rec.get("title") or "未命名项目",
+                "summary": rec.get("summary") or "",
+                "repository_url": rec.get("repository_url"),
+                "display_url": rec.get("repository_url") or rec.get("display_url") or rec.get("source_url"),
+                "link_label": "查看仓库" if rec.get("repository_url") else (rec.get("link_label") or "查看来源"),
+                "change_types": [],
+                "documents_count": 0,
+                "recommended_count": 0,
+                "documents": [],
+            }
+            groups[key] = g
+
+        c = rec.get("change_type") or "updated"
+        if c not in g["change_types"]:
+            g["change_types"].append(c)
+        g["documents_count"] += 1
+        g["recommended_count"] += 1
+        g["documents"].append(
+            {
+                "title": rec.get("title"),
+                "file_path": rec.get("file_path"),
+                "file_url": rec.get("file_url") or rec.get("display_url") or rec.get("source_url"),
+                "link_label": rec.get("link_label") or "查看来源",
+                "change_type": c,
+                "summary": rec.get("summary"),
+            }
+        )
+        if not g.get("summary") and rec.get("summary"):
+            g["summary"] = rec.get("summary")
+        if not g.get("repository_url") and rec.get("repository_url"):
+            g["repository_url"] = rec.get("repository_url")
+            g["display_url"] = rec.get("repository_url")
+            g["link_label"] = "查看仓库"
+
+    out = []
+    for v in groups.values():
+        if not (v.get("summary") or "").strip():
+            v["summary"] = "该项目暂无可用简介，可点击链接查看详情。"
+        out.append(v)
+    out.sort(key=lambda x: (-int(x.get("recommended_count") or 0), str(x.get("title") or "")))
+    return out
 
 
 def _should_auto_summarize(doc: models.SourceDocument) -> bool:
@@ -381,17 +584,32 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
             .limit(8)
         ).all()
     )
-    recommended_documents = [
-        {
-            "document_id": d.id,
-            "title": d.title,
-            "repo": d.repo,
-            "file_path": d.file_path,
-            "source_url": d.source_url,
-            "updated_at": d.updated_at.isoformat() if d.updated_at else None,
-        }
-        for d in recommended_rows
-    ]
+    recommended_documents = []
+    for d in recommended_rows:
+        meta = d.metadata_json or {}
+        summary = (meta.get("summary") or "").strip()
+        if not summary:
+            summary = (d.content or "").strip().replace("\n", " ")
+        summary = _clean_digest_summary(summary)
+        if not summary:
+            summary = "该项目暂无可用简介，可点击链接查看详情。"
+        change_type = "updated"
+        if d.created_at and d.created_at >= window_start:
+            change_type = "created"
+        links = _normalize_github_links(d.source_url, d.repo, d.file_path)
+        recommended_documents.append(
+            {
+                "document_id": d.id,
+                "title": d.title,
+                "repo": d.repo,
+                "file_path": d.file_path,
+                "source_url": d.source_url,
+                "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+                "summary": summary,
+                "change_type": change_type,
+                **links,
+            }
+        )
 
     lines = [
         f"SkillVault Daily Digest - {digest_date}",
@@ -414,12 +632,23 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
         for idx, rec in enumerate(recommended_documents, 1):
             lines.append(f"{idx}. {rec.get('repo') or '-'} - {rec.get('file_path') or rec.get('title')}")
             lines.append(f"   来源：{rec.get('source_url') or '-'}")
+            if rec.get("summary"):
+                lines.append(f"   简介：{rec.get('summary')}")
     else:
-        lines.append("- 今天暂无推荐内容")
+        if created_docs == 0 and updated_docs == 0:
+            lines.append("- 暂无推荐内容：本日未发现新增或更新项目。")
+        else:
+            lines.append("- 暂无推荐内容：今日没有符合推荐条件的文档。")
     if failed_reasons:
         lines.extend(["", "失败任务："])
         for idx, reason in enumerate(failed_reasons[:10], 1):
             lines.append(f"{idx}. {reason}")
+
+    project_groups = _build_project_groups(recommended_documents)
+    projects_total = len(project_groups)
+    projects_recommended = sum(1 for g in project_groups if int(g.get("recommended_count") or 0) > 0)
+    projects_created = sum(1 for g in project_groups if "created" in set(g.get("change_types") or []))
+    projects_updated = sum(1 for g in project_groups if "updated" in set(g.get("change_types") or []))
 
     stats = {
         "github_sync_jobs": len(github_jobs),
@@ -434,6 +663,11 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
         "summaries_created": int(summaries_created),
         "skill_candidates_created": int(skill_candidates_created),
         "recommended_documents": recommended_documents,
+        "project_groups": project_groups,
+        "projects_total": projects_total,
+        "projects_created": projects_created,
+        "projects_updated": projects_updated,
+        "projects_recommended": projects_recommended,
         "failed_reasons": failed_reasons[:20],
     }
 

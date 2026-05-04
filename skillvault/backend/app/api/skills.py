@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.jobs import enqueue_job
@@ -16,9 +16,21 @@ from app.schemas.skill import (
 router = APIRouter(tags=["skills"])
 
 
-@router.get("/api/skill-candidates", response_model=list[SkillCandidateRead])
-def list_skill_candidates(db: Session = Depends(get_db)):
-    return list(db.scalars(select(models.SkillCandidate).order_by(models.SkillCandidate.created_at.desc())).all())
+@router.get("/api/skill-candidates")
+def list_skill_candidates(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    stmt = select(models.SkillCandidate)
+    total = db.scalar(select(func.count()).select_from(models.SkillCandidate)) or 0
+    offset = (page - 1) * page_size
+    items = list(
+        db.scalars(
+            stmt.order_by(models.SkillCandidate.created_at.desc()).offset(offset).limit(page_size)
+        ).all()
+    )
+    return {"items": items, "total": int(total), "page": page, "page_size": page_size}
 
 
 @router.post("/api/skill-candidates/generate")
@@ -71,9 +83,21 @@ def accept_candidate(candidate_id: int, db: Session = Depends(get_db)):
     return skill
 
 
-@router.get("/api/skills", response_model=list[SkillRead])
-def list_skills(db: Session = Depends(get_db)):
-    return list(db.scalars(select(models.Skill).order_by(models.Skill.created_at.desc())).all())
+@router.get("/api/skills")
+def list_skills(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    stmt = select(models.Skill)
+    total = db.scalar(select(func.count()).select_from(models.Skill)) or 0
+    offset = (page - 1) * page_size
+    items = list(
+        db.scalars(
+            stmt.order_by(models.Skill.created_at.desc()).offset(offset).limit(page_size)
+        ).all()
+    )
+    return {"items": items, "total": int(total), "page": page, "page_size": page_size}
 
 
 @router.post("/api/skills", response_model=SkillRead)

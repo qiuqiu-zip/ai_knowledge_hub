@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import models
@@ -21,12 +21,12 @@ def _normalize_prompt_input(
     return normalized_title, normalized_content, normalized_tags
 
 
-@router.get("", response_model=list[PromptRead])
+@router.get("")
 def list_prompts(
     keyword: str | None = Query(default=None),
     favorite: bool | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
     stmt = select(models.Prompt)
@@ -35,8 +35,15 @@ def list_prompts(
         stmt = stmt.where(or_(models.Prompt.title.ilike(kw), models.Prompt.content.ilike(kw)))
     if favorite is not None:
         stmt = stmt.where(models.Prompt.is_favorite == favorite)
-    stmt = stmt.order_by(models.Prompt.created_at.desc()).limit(limit).offset(offset)
-    return list(db.scalars(stmt).all())
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    offset = (page - 1) * page_size
+    stmt = stmt.order_by(models.Prompt.created_at.desc()).limit(page_size).offset(offset)
+    return {
+        "items": list(db.scalars(stmt).all()),
+        "total": int(total),
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("", response_model=PromptRead)

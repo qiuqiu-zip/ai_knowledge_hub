@@ -53,19 +53,21 @@ function changeLocale(v: string) {
       </div>
 
       <el-card class="login-card" shadow="never">
-        <div class="card-top">
-          <div class="brand-block">
+        <div class="card-header">
+          <div class="brand-row">
             <div class="brand-name">SkillVault</div>
+            <el-select :model-value="locale" size="small" class="locale-select" @change="changeLocale">
+              <el-option label="中文" value="zh-CN" />
+              <el-option label="English" value="en-US" />
+            </el-select>
+          </div>
+          <div class="title-block">
             <h1 class="login-title">{{ t('auth.loginTitle') }}</h1>
             <p class="login-subtitle">Welcome back. Please sign in to continue.</p>
           </div>
-          <el-select :model-value="locale" size="small" class="locale-select" @change="changeLocale">
-            <el-option label="中文" value="zh-CN" />
-            <el-option label="English" value="en-US" />
-          </el-select>
         </div>
 
-        <el-form class="login-form" @submit.prevent="submit">
+        <el-form class="login-form" label-position="top" @submit.prevent="submit">
           <el-form-item :label="t('auth.username')">
             <el-input v-model="form.username" autocomplete="username" />
           </el-form-item>
@@ -85,7 +87,7 @@ function changeLocale(v: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 20px;
   background:
     radial-gradient(1200px 450px at 10% -15%, #eef4ff 0%, transparent 60%),
     radial-gradient(900px 380px at 95% 110%, #f2f6fb 0%, transparent 55%),
@@ -93,66 +95,66 @@ function changeLocale(v: string) {
 }
 
 .login-shell {
-  width: min(100%, 500px);
+  width: min(100%, 420px);
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .privacy-tip {
-  border: 1px solid #e5e7eb;
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #e7edf6;
+  background: rgba(255, 255, 255, 0.7);
   color: #6b7280;
-  font-size: 12px;
-  line-height: 1.45;
-  padding: 8px 12px;
-  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 6px 10px;
+  border-radius: 8px;
 }
 
 .login-card {
   width: 100%;
   border-radius: 14px;
   border: 1px solid #e8edf4;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  padding: 32px;
 }
 
-.card-top {
+.card-header {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.brand-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 22px;
-}
-
-.brand-block {
-  min-width: 0;
+  gap: 12px;
 }
 
 .brand-name {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #3b82f6;
-  margin-bottom: 8px;
+}
+
+.title-block {
+  min-width: 0;
 }
 
 .login-title {
   margin: 0;
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1.2;
   color: #111827;
   font-weight: 700;
 }
 
 .login-subtitle {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: #6b7280;
   font-size: 14px;
-}
-
-.locale-select {
-  width: 132px;
-  flex-shrink: 0;
 }
 
 .login-form :deep(.el-form-item__label) {
@@ -163,12 +165,12 @@ function changeLocale(v: string) {
 }
 
 .login-form :deep(.el-form-item) {
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .login-form :deep(.el-input__wrapper) {
   border-radius: 10px;
-  min-height: 44px;
+  min-height: 42px;
   border: 1px solid #d7deea;
   box-shadow: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -180,7 +182,7 @@ function changeLocale(v: string) {
 
 .login-form :deep(.el-input__wrapper.is-focus) {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
 .login-form :deep(.el-input__inner::placeholder) {
@@ -189,15 +191,25 @@ function changeLocale(v: string) {
 
 .submit-btn {
   width: 100%;
-  height: 44px;
+  height: 43px;
   border-radius: 10px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .submit-btn:deep(.is-loading) {
   opacity: 0.9;
+}
+
+.locale-select {
+  width: 108px;
+  flex-shrink: 0;
+}
+
+.locale-select :deep(.el-input__wrapper) {
+  min-height: 34px;
+  border-radius: 8px;
 }
 
 @media (max-width: 640px) {
@@ -210,17 +222,16 @@ function changeLocale(v: string) {
     max-width: 100%;
   }
 
-  .card-top {
-    flex-direction: column;
-    gap: 12px;
+  .login-card {
+    padding: 24px 18px;
   }
 
-  .locale-select {
-    width: 100%;
+  .card-header {
+    margin-bottom: 18px;
   }
 
   .login-title {
-    font-size: 24px;
+    font-size: 22px;
   }
 }
 </style>
