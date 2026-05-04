@@ -1,0 +1,17 @@
+.env
+.env.*
+**/.env
+**/.env.*
+.ai-dev-supervisor/
+**/.ai-dev-supervisor/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+frontend/dist/
+**/frontend/dist/
+__pycache__/
+**/__pycache__/
+*.pyc
+.idea/
+**/.idea/

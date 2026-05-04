@@ -1,0 +1,25 @@
+{
+  "executor_name": "aider",
+  "command": [
+    "/Users/qiuqiuqiu/.local/bin/aider",
+    "frontend/src/views/LoginView.vue",
+    "--model",
+    "ollama_chat/qwen3-coder:30b",
+    "--message-file",
+    "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260503-022234/iterations/002/developer_prompt.txt",
+    "--no-auto-commits",
+    "--no-dirty-commits",
+    "--yes",
+    "--no-show-model-warnings",
+    "--subtree-only",
+    "--no-detect-urls"
+  ],
+  "exit_code": 130,
+  "stdout_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260503-022234/iterations/002/executor_stdout.log",
+  "stderr_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260503-022234/iterations/002/executor_stderr.log",
+  "started_at": "2026-05-02T18:41:47.179158Z",
+  "ended_at": "2026-05-02T18:46:10.744530Z",
+  "timeout": false,
+  "interrupted": true,
+  "error": "Execution interrupted by user."
+}

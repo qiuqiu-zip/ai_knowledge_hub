@@ -1,0 +1,14 @@
+{
+  "executor_name": "aider",
+  "command": [
+    "aider"
+  ],
+  "exit_code": 130,
+  "stdout_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-225830/iterations/001/executor_stdout.log",
+  "stderr_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260502-225830/iterations/001/executor_stderr.log",
+  "started_at": "2026-05-03T01:37:57.659355",
+  "ended_at": "2026-05-03T01:40:39.820828",
+  "timeout": false,
+  "interrupted": true,
+  "error": "Execution interrupted by user (KeyboardInterrupt)."
+}

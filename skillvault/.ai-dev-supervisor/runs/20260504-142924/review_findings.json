@@ -1,0 +1,54 @@
+{
+  "status": "NEEDS_DEVELOPER_INVESTIGATION",
+  "summary": "PM visual regression review: the login page change is too minor and does not meet the modern enterprise SaaS login page requirement.",
+  "requirement_checks": [
+    {
+      "id": "REQ-UI-001",
+      "requirement": "Login page should look modern, clean, professional, and clearly better than the original.",
+      "result": "failed",
+      "evidence": "Visual inspection shows the page still looks like the original form with only minor spacing changes."
+    },
+    {
+      "id": "REQ-UI-002",
+      "requirement": "Card width, spacing, typography, form layout, language selector, and privacy bar should be redesigned with stronger visual hierarchy.",
+      "result": "failed",
+      "evidence": "Card still has excessive blank space; form layout remains awkward horizontal label/input style; language selector at bottom-right looks detached."
+    },
+    {
+      "id": "REQ-UI-003",
+      "requirement": "Existing functionality and bindings must be preserved.",
+      "result": "needs_investigation",
+      "evidence": "Developer must re-check template bindings before a stronger redesign."
+    }
+  ],
+  "issues": [
+    {
+      "id": "ISSUE-UI-001",
+      "severity": "high",
+      "description": "The implementation is too conservative. It only shrinks dimensions and moves the language selector, but does not achieve a polished SaaS login page.",
+      "needs_developer_investigation": true,
+      "investigation_questions": [
+        "Which template bindings must be preserved exactly before redesigning the layout?",
+        "Can the form be changed from horizontal label/input layout to stacked labels above inputs while preserving v-model and login behavior?",
+        "Can the card be redesigned to a compact shell with balanced inner spacing and no large empty lower area?",
+        "Where should the language selector be placed so it is subtle but not visually detached?",
+        "How can the privacy bar be retained while reducing visual interference?"
+      ]
+    },
+    {
+      "id": "ISSUE-UI-002",
+      "severity": "medium",
+      "description": "The current design still looks bulky and unfinished.",
+      "needs_developer_investigation": true,
+      "investigation_questions": [
+        "What CSS changes are needed to reduce the card's empty space?",
+        "What template structure can create a cleaner brand/header/form/footer hierarchy?",
+        "What responsive rules are needed for mobile without overlap or horizontal scroll?"
+      ]
+    }
+  ],
+  "decision": {
+    "next_action": "developer_reinvestigation",
+    "reason": "PM rejects the visual result. Developer must perform read-only investigation and propose a stronger revised UI plan before changing code again."
+  }
+}

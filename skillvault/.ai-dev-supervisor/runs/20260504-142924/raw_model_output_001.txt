@@ -1,0 +1,64 @@
+STATUS: READY_TO_EXECUTE
+
+SCOPE_POLICY:
+{
+  "mode": "restricted",
+  "allowed_paths": ["frontend/src/views/LoginView.vue"],
+  "forbidden_paths": [".env", ".env.*", "__pycache__/", "*.pyc", "dist/", "frontend/dist/", "node_modules/", ".idea/", ".ai-dev-supervisor/"],
+  "confidence": "high",
+  "reason": "User explicitly specified only LoginView.vue may be modified, with strict constraints on script/logic/i18n/dependencies."
+}
+
+TASK_PROMPT:
+# Task Objective
+Optimize the SkillVault login page UI to a modern, clean, professional enterprise SaaS login page.
+
+## Allowed Changes
+- Only modify: `frontend/src/views/LoginView.vue`
+- You may adjust the **template structure** (HTML layout, element ordering, wrapper divs) and **scoped styles** (CSS inside `<style scoped>`).
+- You may add/remove wrapper elements, restructure the card layout, adjust spacing, sizing, alignment, colors, typography, and responsive behavior.
+- Desktop: card must be centered, moderate width (~400-440px max), comfortable whitespace.
+- Mobile: no horizontal scroll, no overlap, no clipping. Use responsive breakpoints (e.g., `@media (max-width: 640px)`).
+- Keep the overall visual style: modern, clean, professional enterprise SaaS login.
+
+## Forbidden Changes
+- Do NOT modify the `<script>` section at all.
+- Do NOT change login logic, API calls, auth store, router, or i18n keys.
+- Do NOT add new dependencies.
+- Do NOT add new features (no registration, forgot password, third-party login, etc.).
+- Do NOT remove or break existing bindings: `v-model`, `@click`, `:loading`, `:disabled`, `t(...)`, `changeLocale`, `handleLogin`, `locale`, `loginForm`, `loading`, `privacyAccepted`.
+- Do NOT modify any other file.
+
+## Elements That Must Be Preserved (with their bindings)
+1. **Language switcher** (`<el-select>` or similar with `v-model="locale"` and `@change="changeLocale"`)
+2. **Username input** (`v-model="loginForm.username"`)
+3. **Password input** (`v-model="loginForm.password"`)
+4. **Login button** (`@click="handleLogin"`, `:loading="loading"`, `:disabled="!privacyAccepted"`)
+5. **Top privacy notice bar** (must be retained but visually reduced — less intrusive, smaller font, subtle background)
+
+## Specific UI Improvements Requested
+- Card width: currently too wide → reduce to ~400-440px max-width on desktop.
+- Input fields: currently too tall → reduce height to ~40px.
+- Title: currently too large → reduce font size (e.g., 22-24px).
+- Form labels and input layout: improve natural alignment and spacing.
+- Language selector: keep but make more subtle in position and visual weight (e.g., bottom-right corner, smaller).
+- Top privacy bar: keep but reduce visual interference (smaller text, lower opacity, less padding).
+- Overall: modern, clean, professional enterprise SaaS login aesthetic.
+
+## Acceptance Criteria
+1. Desktop: card centered horizontally and vertically, max-width ~400-440px, comfortable padding.
+2. Mobile: no horizontal scroll, no overlap, no clipping. Card adapts to screen width.
+3. All existing bindings (`v-model`, `@click`, `:loading`, `:disabled`, `t(...)`, etc.) remain functional.
+4. Language switcher, username input, password input, login button, and top privacy bar are all present.
+5. No new features added.
+6. `cd frontend && npm run build` passes without errors.
+
+## Test Approach
+- Run `cd frontend && npm run build` to verify no build errors.
+- Visually inspect the rendered page for desktop and mobile layouts (if possible).
+
+## Risk Boundaries
+- Do not touch any file outside `frontend/src/views/LoginView.vue`.
+- Do not modify the `<script>` block.
+- Do not introduce new npm packages or Vue components.
+- Do not output secrets, environment variables, or sensitive data.

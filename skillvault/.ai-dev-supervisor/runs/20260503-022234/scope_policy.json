@@ -1,0 +1,22 @@
+{
+  "mode": "restricted",
+  "allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "__pycache__/",
+    "*.pyc",
+    "dist/",
+    "frontend/dist/",
+    "node_modules/",
+    ".idea/",
+    ".ai-dev-supervisor/"
+  ],
+  "source": "heuristic",
+  "confidence": "medium",
+  "reason": "Inferred from request/task prompt text.",
+  "created_at": "2026-05-03T02:22:34",
+  "updated_at": "2026-05-03T02:22:34"
+}

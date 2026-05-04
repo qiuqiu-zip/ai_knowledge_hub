@@ -1,0 +1,1 @@
+测试 Developer Investigation Gate。只允许修改 frontend/src/views/LoginView.vue。不要改 script，只把 .login-card border-radius 改为 18px。

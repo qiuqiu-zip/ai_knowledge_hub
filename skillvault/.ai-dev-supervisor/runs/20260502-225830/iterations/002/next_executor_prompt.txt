@@ -1,0 +1,36 @@
+# Task Objective
+Fix the LoginView.vue file. The previous attempt had several problems that need to be corrected.
+
+## Current Request
+优化 SkillVault 登录页 UI。登录页文件是 skillvault/frontend/src/views/LoginView.vue。只允许修改这个文件，不要改业务逻辑。
+
+## Required Corrections
+1. **DO NOT change business logic**: Keep the original login API call pattern (`api.post('/api/auth/login', ...)`), token handling (`data.access_token`), navigation (`await router.replace('/')`), i18n support, locale switching, and form validation approach.
+2. **Keep original imports**: Use `../api/client` not `@/api/auth`, use `../stores/auth` not `@/stores/auth`.
+3. **Only change UI/CSS**: You may modify the template structure and CSS styles, but the script section's business logic must remain functionally identical.
+4. **Keep all existing features**: The privacy tip, locale selector, i18n translations, and all existing functionality must be preserved.
+
+## Allowed Changes
+- Update CSS styles (colors, spacing, shadows, backgrounds, responsive breakpoints)
+- Update template structure (add wrapper divs, change class names, adjust layout)
+- Add new CSS classes for improved visual design
+- Keep all existing template elements (privacy tip, locale selector, brand block, etc.)
+
+## Forbidden Changes
+- Do not change API endpoints or request format
+- Do not change import paths
+- Do not remove i18n or locale switching
+- Do not change form validation logic
+- Do not change navigation logic
+- Do not remove any existing template elements
+
+## Test Commands
+```bash
+cd /Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/frontend && npm run build
+```
+
+## Instructions
+1. Read the current state of `skillvault/frontend/src/views/LoginView.vue`
+2. Apply ONLY CSS/styling improvements while preserving ALL business logic
+3. Run the build test
+4. Report the final file content and test results

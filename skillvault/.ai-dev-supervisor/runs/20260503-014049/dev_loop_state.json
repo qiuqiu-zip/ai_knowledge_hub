@@ -1,0 +1,20 @@
+{
+  "status": "ACCEPTED",
+  "current_round": 1,
+  "max_rounds": 1,
+  "executor": "aider",
+  "started_at": "2026-05-03T01:42:25",
+  "accepted_at": "2026-05-03T01:44:23",
+  "latest_iteration_dir": "iterations/001",
+  "final_review_file": "iterations/001/pm_review.md",
+  "next_action": "Proceed to human submission review.",
+  "scope_policy_file": "scope_policy.json",
+  "effective_allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "scope_policy_source": "model",
+  "scope_policy_confidence": "high",
+  "scope_guard_enabled": true,
+  "scope_guard_reason": "User explicitly specified the only file to modify and the exact CSS changes. No other files should be touched.",
+  "updated_at": "2026-05-03T01:44:23"
+}

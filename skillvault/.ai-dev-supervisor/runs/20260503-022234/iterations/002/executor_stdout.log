@@ -1,0 +1,31 @@
+────────────────────────────────────────────────────────────────────────────────
+Aider v0.86.2
+Model: ollama_chat/qwen3-coder:30b with whole edit format
+Git repo: ../.git with 241 files
+Repo-map: using 4096 tokens, auto refresh
+Added skillvault/frontend/src/views/LoginView.vue to the chat.
+Note: in-chat filenames are always relative to the git working dir, not the 
+current working dir.
+Cur working dir: /Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault
+Git working dir: /Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub
+
+
+skillvault/.env
+
+skillvault/.env.example
+
+skillvault/backend/pyproject.toml
+
+skillvault/docker-compose.yml
+
+skillvault/frontend/package-lock.json
+Warning: it's best to only add files that need changes to the chat.
+https://aider.chat/docs/troubleshooting/edit-errors.html
+
+skillvault/frontend/package.json
+
+skillvault/start.sh
+
+
+^C again to exit
+

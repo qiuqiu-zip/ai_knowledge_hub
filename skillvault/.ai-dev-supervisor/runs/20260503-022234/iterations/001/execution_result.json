@@ -1,0 +1,14 @@
+{
+  "executor_name": "aider",
+  "command": [
+    "aider"
+  ],
+  "exit_code": 1,
+  "stdout_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260503-022234/iterations/001/executor_stdout.log",
+  "stderr_path": "/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260503-022234/iterations/001/executor_stderr.log",
+  "started_at": "2026-05-03T02:40:44.508983",
+  "ended_at": "2026-05-03T02:40:44.509153",
+  "timeout": false,
+  "interrupted": false,
+  "error": "Aider command not found: aider"
+}

@@ -1,0 +1,13 @@
+Warning: Input is not a terminal (fd=0).
+
+Scanning repo:   0%|          | 0/245 [00:00<?, ?it/s]
+Scanning repo:   0%|          | 1/245 [00:00<03:20,  1.22it/s]
+Scanning repo:   1%|          | 3/245 [00:01<01:54,  2.11it/s]
+Scanning repo:   4%|▍         | 10/245 [00:02<00:43,  5.43it/s]
+Scanning repo:  64%|██████▍   | 158/245 [00:03<00:01, 82.00it/s]
+Scanning repo:  68%|██████▊   | 167/245 [00:03<00:01, 68.37it/s]
+Scanning repo:  77%|███████▋  | 189/245 [00:03<00:00, 74.63it/s]
+Scanning repo:  87%|████████▋ | 214/245 [00:04<00:00, 69.05it/s]
+Scanning repo:  91%|█████████ | 222/245 [00:05<00:00, 27.54it/s]
+Scanning repo: 100%|█████████▉| 244/245 [00:06<00:00, 28.90it/s]
+Scanning repo: 100%|██████████| 245/245 [00:06<00:00, 37.77it/s]

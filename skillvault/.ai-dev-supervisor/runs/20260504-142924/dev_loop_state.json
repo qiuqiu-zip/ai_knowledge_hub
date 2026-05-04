@@ -1,0 +1,23 @@
+{
+  "status": "REVIEW_FAILED",
+  "current_round": 2,
+  "max_rounds": 1,
+  "executor": "aider",
+  "requested_executor": "aider",
+  "selected_executor": "aider",
+  "selection_reason": "Using explicitly requested executor.",
+  "started_at": "2026-05-04T15:34:33",
+  "accepted_at": null,
+  "latest_iteration_dir": "iterations/002",
+  "final_review_file": "iterations/002/pm_review.md",
+  "next_action": "Executor completed. Run ai-dev review --run-dir /Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault/.ai-dev-supervisor/runs/20260504-142924 --no-api, or configure provider key and run ai-dev review.",
+  "scope_policy_file": "scope_policy.json",
+  "effective_allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "scope_policy_source": "model",
+  "scope_policy_confidence": "high",
+  "scope_guard_enabled": true,
+  "scope_guard_reason": "User explicitly specified only LoginView.vue may be modified, with strict constraints on script/logic/i18n/dependencies.",
+  "updated_at": "2026-05-04T15:35:55"
+}

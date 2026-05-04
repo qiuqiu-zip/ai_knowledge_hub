@@ -1,0 +1,1 @@
+测试 Code Read Evidence Gate。只允许修改 frontend/src/views/LoginView.vue。不要改 script，只把 .login-title font-size 改为 27px。

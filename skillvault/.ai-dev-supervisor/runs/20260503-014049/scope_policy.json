@@ -1,0 +1,22 @@
+{
+  "mode": "restricted",
+  "allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "__pycache__/",
+    "*.pyc",
+    "dist/",
+    "frontend/dist/",
+    "node_modules/",
+    ".idea/",
+    ".ai-dev-supervisor/"
+  ],
+  "confidence": "high",
+  "reason": "User explicitly specified the only file to modify and the exact CSS changes. No other files should be touched.",
+  "source": "model",
+  "created_at": "2026-05-03T01:40:57",
+  "updated_at": "2026-05-03T01:40:57"
+}

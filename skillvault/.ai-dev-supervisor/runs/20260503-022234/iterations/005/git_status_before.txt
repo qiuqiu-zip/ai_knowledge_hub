@@ -1,0 +1,8 @@
+ M .ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch
+ M .ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt
+ M .ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json
+ M frontend/src/views/LoginView.vue
+?? .ai-dev-supervisor/runs/20260502-225830/iterations/
+?? .ai-dev-supervisor/runs/20260503-014049/
+?? .ai-dev-supervisor/runs/20260503-015806/
+?? .ai-dev-supervisor/runs/20260503-022234/

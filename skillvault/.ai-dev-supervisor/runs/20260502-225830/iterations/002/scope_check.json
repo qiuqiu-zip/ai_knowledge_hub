@@ -1,0 +1,20 @@
+{
+  "allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "changed_files": [
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch",
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt",
+    ".ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json",
+    ".ai-dev-supervisor/runs/20260502-225830/iterations/"
+  ],
+  "violations": [],
+  "passed": true,
+  "policy_allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "cli_allowed_paths": [],
+  "effective_allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ]
+}

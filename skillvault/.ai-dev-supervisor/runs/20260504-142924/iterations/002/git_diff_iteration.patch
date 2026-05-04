@@ -1,0 +1,88 @@
+--- a/frontend/src/views/LoginView.vue
++++ b/frontend/src/views/LoginView.vue
+@@ -53,11 +53,17 @@
+       </div>
+ 
+       <el-card class="login-card" shadow="never">
+-        <div class="card-top">
++        <div class="card-header">
+           <div class="brand-block">
+             <div class="brand-name">SkillVault</div>
+             <h1 class="login-title">{{ t('auth.loginTitle') }}</h1>
+             <p class="login-subtitle">Welcome back. Please sign in to continue.</p>
++          </div>
++          <div class="locale-container">
++            <el-select :model-value="locale" size="small" class="locale-select" @change="changeLocale">
++              <el-option label="中文" value="zh-CN" />
++              <el-option label="English" value="en-US" />
++            </el-select>
+           </div>
+         </div>
+ 
+@@ -70,13 +76,6 @@
+           </el-form-item>
+           <el-button class="submit-btn" type="primary" :loading="loading" @click="submit">{{ t('auth.loginButton') }}</el-button>
+         </el-form>
+-        
+-        <div class="locale-container">
+-          <el-select :model-value="locale" size="small" class="locale-select" @change="changeLocale">
+-            <el-option label="中文" value="zh-CN" />
+-            <el-option label="English" value="en-US" />
+-          </el-select>
+-        </div>
+       </el-card>
+     </div>
+   </div>
+@@ -117,10 +116,10 @@
+   border-radius: 12px;
+   border: 1px solid #e8edf4;
+   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+-  padding: 32px;
+-}
+-
+-.card-top {
++  padding: 32px 24px;
++}
++
++.card-header {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+@@ -188,7 +187,7 @@
+ 
+ .submit-btn {
+   width: 100%;
+-  height: 42px;
++  height: 40px;
+   border-radius: 8px;
+   font-weight: 600;
+   letter-spacing: 0.01em;
+@@ -202,11 +201,11 @@
+ .locale-container {
+   display: flex;
+   justify-content: flex-end;
+-  margin-top: 20px;
++  margin-top: 8px;
+ }
+ 
+ .locale-select {
+-  width: 100px;
++  width: 90px;
+   flex-shrink: 0;
+ }
+ 
+@@ -221,10 +220,10 @@
+   }
+ 
+   .login-card {
+-    padding: 24px;
+-  }
+-
+-  .card-top {
++    padding: 24px 16px;
++  }
++
++  .card-header {
+     margin-bottom: 20px;
+   }
+ 

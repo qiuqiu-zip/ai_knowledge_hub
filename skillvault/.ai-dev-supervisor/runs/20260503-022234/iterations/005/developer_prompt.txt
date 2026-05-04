@@ -1,0 +1,92 @@
+# Developer Execution Prompt
+
+## Goal
+测试 Code Read Evidence Gate。只允许修改 frontend/src/views/LoginView.vue。不要改 script，只把 .login-title font-size 改为 27px。
+
+## Editable Files
+- frontend/src/views/LoginView.vue
+
+## Required Changes
+- Read target files and preserve logic contracts.
+- Apply minimal edits only within allowed files.
+- Verify final diff only includes allowed files.
+
+## Preserve Logic Contracts
+- Do not modify unrelated modules.
+- Do not change public API unless required by this task.
+
+## Code Evidence Read Before Editing
+- frontend/src/views/LoginView.vue: contains <script setup>
+
+## Forbidden
+- backend/**
+- frontend/src/api/client.ts
+- frontend/src/i18n/index.ts
+- frontend/src/stores/auth.ts
+- .env
+- .env.*
+- __pycache__/
+- *.pyc
+- dist/
+- frontend/dist/
+- node_modules/
+- .idea/
+- .ai-dev-supervisor/
+- No commit, no push, no secrets.
+
+## Implementation Instructions
+- Read editable files first.
+- Make minimal edit only.
+- Do not reformat unrelated code.
+- Stop after requested change is complete.
+
+## Verification
+- Final diff should only include editable files.
+- Report test commands and results honestly.
+- Test: python3 -m compileall backend/app
+- Test: cd frontend && npm run build
+
+## Task Prompt Reference
+# Task Objective
+Deliver the requested change with strict scope control and minimal edits.
+
+## Current Request
+测试 Code Read Evidence Gate。只允许修改 frontend/src/views/LoginView.vue。不要改 script，只把 .login-title font-size 改为 27px。
+
+## Project Context
+Project Context
+
+Project Path:
+/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub/skillvault
+
+Git Root:
+/Users/qiuqiuqiu/PycharmProjects/ai_knowledge_hub
+
+Project Relative Path:
+skillvault
+
+Is Git Repo:
+True
+
+Git Status scoped to project path:
+M .ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch
+ M .ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt
+ M .ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json
+ M frontend/src/views/LoginView.vue
+?? .ai-dev-supervisor/runs/20260502-225830/iterations/
+?? .ai-dev-supervisor/runs/20260503-014049/
+?? .ai-dev-supervisor/runs/20260503-015806/
+
+Key Files:
+- README.md: exists
+- docker-compose.yml: exists
+- start.sh: exists
+- pyproject.toml: missing
+- package.json: missing
+- package-lock.json: missing
+- requirements.txt: missing
+- backend/pyproject.toml: exists
+- backend/requirements.txt: missing
+- backend/Dockerfile: exists
+- backend/alembic.ini: exists
+- frontend/package.json:

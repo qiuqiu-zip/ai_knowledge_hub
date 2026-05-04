@@ -1,0 +1,23 @@
+# Task Objective
+Make exactly two CSS-only style changes to `frontend/src/views/LoginView.vue`. Do NOT modify any `<script>` block, business logic, API calls, authentication, routing, i18n, state management, or backend code. Only modify CSS within the `<style>` block.
+
+## Changes Required
+1. Change `.login-card` `border-radius` to `18px`.
+2. Change `.submit-btn` `height` to `46px`.
+
+## Scope Constraints
+- **Allowed file**: `frontend/src/views/LoginView.vue` only.
+- **Forbidden**: Any changes to `<script>` block, template structure, business logic, interfaces, authentication, routing, i18n, state management, backend files, or any other file.
+- **Forbidden artifacts**: Do not create or modify `__pycache__/`, `*.pyc`, `dist/`, `frontend/dist/`, `node_modules/`, `.env`, `.env.*`, `.idea/`, `.ai-dev-supervisor/`.
+- **No commit, no push, no git operations**.
+- **No secrets output**.
+
+## Acceptance Criteria
+- `.login-card` has `border-radius: 18px` (verify by reading the file after edit).
+- `.submit-btn` has `height: 46px` (verify by reading the file after edit).
+- No other changes in the file (no script changes, no template changes, no other CSS changes).
+- Only `frontend/src/views/LoginView.vue` is modified.
+
+## Verification
+1. Read the file and confirm the two CSS properties are set exactly as specified.
+2. Run `cd frontend && npm run build` to ensure no build errors.

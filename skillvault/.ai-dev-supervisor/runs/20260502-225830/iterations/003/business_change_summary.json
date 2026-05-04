@@ -1,0 +1,12 @@
+{
+  "business_changed_files": [],
+  "allowed_business_changed_files": [],
+  "run_artifact_changed_files": [
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch",
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt",
+    ".ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json",
+    ".ai-dev-supervisor/runs/20260502-225830/iterations/"
+  ],
+  "has_business_changes": false,
+  "has_allowed_file_changes": false
+}

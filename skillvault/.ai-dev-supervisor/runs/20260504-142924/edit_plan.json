@@ -1,0 +1,50 @@
+{
+  "status": "READY_TO_IMPLEMENT",
+  "confidence": "medium",
+  "target_files": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "readonly_context_files": [
+    "frontend/src/api/client.ts",
+    "frontend/src/stores/auth.ts",
+    "frontend/src/i18n/index.ts"
+  ],
+  "allowed_edit_files": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "forbidden_edit_files": [
+    "backend/**",
+    "frontend/src/api/client.ts",
+    "frontend/src/i18n/index.ts",
+    "frontend/src/stores/auth.ts"
+  ],
+  "current_behavior_summary": "Derived from local read-only investigation context.",
+  "implementation_steps": [
+    "Read target files and preserve logic contracts.",
+    "Apply minimal edits only within allowed files.",
+    "Verify final diff only includes allowed files."
+  ],
+  "logic_contracts_to_preserve": [
+    "Do not modify the `<script>` block."
+  ],
+  "test_plan": [
+    "python3 -m compileall backend/app",
+    "cd frontend && npm run build"
+  ],
+  "risks": [],
+  "execution_strategy": {
+    "recommended_executor": "aider",
+    "reason": "No deterministic patch operation was confidently identified.",
+    "confidence": "low",
+    "patch_operations": []
+  },
+  "created_at": "2026-05-04T15:23:16",
+  "source_evidence": [
+    {
+      "file": "frontend/src/views/LoginView.vue",
+      "evidence": "contains <script setup>"
+    }
+  ],
+  "code_read_manifest_file": "code_read_manifest.json",
+  "updated_at": "2026-05-04T15:23:16"
+}

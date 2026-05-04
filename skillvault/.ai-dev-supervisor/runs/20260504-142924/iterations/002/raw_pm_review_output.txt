@@ -1,0 +1,1 @@
+MODEL_REVIEW_FAILED: Missing API key environment variable `DEEPSEEK_API_KEY`. Export `DEEPSEEK_API_KEY` or run with `--no-api`.

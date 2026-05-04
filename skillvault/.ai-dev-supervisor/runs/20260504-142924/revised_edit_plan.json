@@ -1,0 +1,73 @@
+{
+  "status": "NEEDS_PM_DECISION",
+  "confidence": "medium",
+  "target_files": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "readonly_context_files": [
+    "frontend/src/api/client.ts",
+    "frontend/src/stores/auth.ts",
+    "frontend/src/i18n/index.ts"
+  ],
+  "allowed_edit_files": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "forbidden_edit_files": [
+    "backend/**",
+    "frontend/src/api/client.ts",
+    "frontend/src/i18n/index.ts",
+    "frontend/src/stores/auth.ts"
+  ],
+  "current_behavior_summary": "The previous implementation only made minor numeric style adjustments. Visual inspection shows the page still looks bulky and close to the original: card has too much empty space, form still looks like a backend form, and the language selector feels detached.",
+  "implementation_steps": [
+    "Keep the script section unchanged.",
+    "Preserve all existing bindings and functionality: locale/changeLocale, username/password v-model, login button click/loading/disabled behavior, t(...) calls, and privacy notice.",
+    "Redesign the template hierarchy into a compact SaaS login card: subtle privacy notice, clean brand/header area, stacked form fields, primary login button, and natural language switcher placement.",
+    "Change the form from horizontal label/input layout to stacked labels above inputs if the current script bindings can be preserved.",
+    "Reduce excessive inner blank space: use a compact max-width around 400-440px and balanced card padding.",
+    "Make inputs visually refined: natural height around 40px, consistent radius, focus state, and clean spacing.",
+    "Make the language selector subtle and integrated, preferably in the card header or compact footer, not floating awkwardly with too much empty space.",
+    "Improve responsive behavior for mobile: no horizontal scroll, no overlap, no clipping, and compact padding.",
+    "Do not add new features, new dependencies, new routes, new API calls, or new i18n keys.",
+    "Only modify frontend/src/views/LoginView.vue."
+  ],
+  "logic_contracts_to_preserve": [
+    "Do not modify the script block.",
+    "Do not change login API calls.",
+    "Do not change auth store usage.",
+    "Do not change router behavior.",
+    "Do not change i18n key names.",
+    "Do not add new dependencies.",
+    "Preserve language switcher and changeLocale.",
+    "Preserve username/password v-model bindings.",
+    "Preserve login button click/loading/disabled behavior.",
+    "Preserve top privacy notice bar."
+  ],
+  "test_plan": [
+    "python3 -m compileall backend/app",
+    "cd frontend && npm run build"
+  ],
+  "risks": [],
+  "execution_strategy": {
+    "recommended_executor": "aider",
+    "reason": "This is a non-deterministic UI redesign requiring template and scoped CSS changes while preserving bindings.",
+    "confidence": "medium",
+    "patch_operations": []
+  },
+  "created_at": "2026-05-04T15:23:16",
+  "source_evidence": [
+    {
+      "file": "frontend/src/views/LoginView.vue",
+      "evidence": "contains <script setup>"
+    }
+  ],
+  "code_read_manifest_file": "code_read_manifest.json",
+  "updated_at": "2026-05-04T15:23:16",
+  "source": "review_reinvestigation",
+  "review_issue_ids": [
+    "ISSUE-UI-001",
+    "ISSUE-UI-002"
+  ],
+  "pm_decision_required": true,
+  "requirement_gap_summary": "The UI must be redesigned with a stronger modern SaaS visual hierarchy, not just small spacing changes."
+}

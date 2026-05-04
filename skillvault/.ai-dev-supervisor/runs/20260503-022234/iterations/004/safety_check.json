@@ -1,0 +1,35 @@
+{
+  "git_status": " M .ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch\n M .ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt\n M .ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json\n M frontend/src/views/LoginView.vue\n?? .ai-dev-supervisor/runs/20260502-225830/iterations/\n?? .ai-dev-supervisor/runs/20260503-014049/\n?? .ai-dev-supervisor/runs/20260503-015806/\n?? .ai-dev-supervisor/runs/20260503-022234/\n",
+  "risks": [
+    {
+      "path": ".env",
+      "level": "high",
+      "reason": "Potential secret or private key file"
+    },
+    {
+      "path": ".env.example",
+      "level": "high",
+      "reason": ".env.example may contain real secrets (keys: DATABASE_URL)"
+    },
+    {
+      "path": ".ai-dev-supervisor/runs/20260502-225830/iterations/",
+      "level": "medium",
+      "reason": "Run artifacts detected. Add .ai-dev-supervisor/ to target project .gitignore (manual)."
+    },
+    {
+      "path": ".ai-dev-supervisor/runs/20260503-014049/",
+      "level": "medium",
+      "reason": "Run artifacts detected. Add .ai-dev-supervisor/ to target project .gitignore (manual)."
+    },
+    {
+      "path": ".ai-dev-supervisor/runs/20260503-015806/",
+      "level": "medium",
+      "reason": "Run artifacts detected. Add .ai-dev-supervisor/ to target project .gitignore (manual)."
+    },
+    {
+      "path": ".ai-dev-supervisor/runs/20260503-022234/",
+      "level": "medium",
+      "reason": "Run artifacts detected. Add .ai-dev-supervisor/ to target project .gitignore (manual)."
+    }
+  ]
+}

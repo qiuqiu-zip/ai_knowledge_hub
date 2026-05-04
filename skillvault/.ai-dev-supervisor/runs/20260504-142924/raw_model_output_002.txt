@@ -1,0 +1,125 @@
+STATUS: READY_TO_IMPLEMENT
+
+DEVELOPER_INVESTIGATION:
+
+## Analysis of Current LoginView.vue
+
+### Current State (from code_read_manifest evidence)
+
+**Template Structure:**
+- `.login-wrap` — full-viewport wrapper with radial gradient background
+- `.login-shell` — container with `width: min(100%, 500px)` (too wide per requirements)
+- `.privacy-tip` — top bar with border, background, padding, border-radius
+- `el-card.login-card` — card with border-radius, border, box-shadow
+- `.card-top` — flex row with `.brand-block` (brand name + title + subtitle) and `.locale-select`
+- `.login-form` — contains two `el-form-item` (username, password) and submit button
+- Language selector: `el-select` with `v-model="locale"` and `@change="changeLocale"`, width 132px
+- Username input: `el-input` with `v-model="form.username"`
+- Password input: `el-input` with `v-model="form.password"`, type="password", show-password
+- Login button: `el-button` with `@click="submit"`, `:loading="loading"`, type="primary"
+
+**Current CSS Issues:**
+- `.login-shell` max-width is 500px (should be ~400-440px)
+- `.login-title` font-size: 27px (should be 22-24px)
+- Input wrapper min-height: 44px (should be ~40px)
+- `.submit-btn` height: 46px (should be ~40px)
+- `.locale-select` width: 132px (too prominent, should be smaller/subtler)
+- `.privacy-tip` has border, background, padding 8px 12px (needs to be less intrusive)
+- Card-top is flex row with gap 16px
+- No vertical centering of card within viewport (currently uses align-items: center but card is at top of shell)
+- Mobile breakpoint at 640px but card-top becomes column which may cause layout issues
+
+**Script (must NOT be modified):**
+- Uses `reactive`, `ref`, `ElMessage`, `useRouter`, `useI18n`, `api`, `setToken`, `setUser`, `getLocale`, `setLocale`
+- Functions: `submit()` (async), `changeLocale(v)`
+- Reactive state: `loading`, `locale`, `form` (username, password)
+- All bindings: `v-model="form.username"`, `v-model="form.password"`, `@click="submit"`, `:loading="loading"`, `:disabled` not present on button (but requirement says keep `:disabled="!privacyAccepted"` — need to check if `privacyAccepted` exists in script; it does NOT appear in current script, so the button currently has no `:disabled` binding. The requirement says "keep existing" but `privacyAccepted` is not in the script. We must NOT add it. We'll keep the button as-is without `:disabled`.)
+
+**Key Observations:**
+1. The `privacyAccepted` variable mentioned in requirements does NOT exist in the current script. The button currently has no `:disabled` binding. We must NOT add one.
+2. The `loginForm` reference in requirements is actually `form` in the script. We must keep `v-model="form.username"` and `v-model="form.password"`.
+3. The `handleLogin` reference in requirements is actually `submit` in the script. We must keep `@click="submit"`.
+
+### Required Changes (template + scoped style only)
+
+1. **Card width**: Reduce `.login-shell` max-width from 500px to ~420px
+2. **Input height**: Reduce input wrapper min-height from 44px to 40px
+3. **Title size**: Reduce `.login-title` font-size from 27px to 23px
+4. **Form layout**: Improve label/input spacing and alignment
+5. **Language selector**: Make more subtle — move to bottom-right of card, reduce width/size
+6. **Privacy bar**: Reduce visual interference — smaller text, lower opacity, less padding, no border
+7. **Desktop centering**: Card should be centered both horizontally and vertically with comfortable whitespace
+8. **Mobile**: No horizontal scroll, no overlap, no clipping — card adapts to screen width
+9. **Overall aesthetic**: Modern, clean, professional enterprise SaaS login
+
+### Risks
+- Must NOT modify `<script>` block at all
+- Must NOT change any bindings (v-model, @click, :loading, etc.)
+- Must NOT add new features (registration, forgot password, third-party login)
+- Must NOT add new dependencies
+- Must NOT modify any other file
+- Must preserve: language switcher, username input, password input, login button, top privacy bar
+- Build must pass with `cd frontend && npm run build`
+
+EDIT_PLAN:
+```json
+{
+  "code_read_manifest_file": "code_read_manifest.json",
+  "source_evidence": [
+    "frontend/src/views/LoginView.vue: template contains el-form, el-input, el-button, el-select",
+    "frontend/src/views/LoginView.vue: style contains .login-card, .submit-btn, .login-title",
+    "frontend/src/views/LoginView.vue: script contains submit, changeLocale, form, loading, locale"
+  ],
+  "target_file": "frontend/src/views/LoginView.vue",
+  "changes": [
+    {
+      "type": "modify_template",
+      "description": "Restructure template for modern SaaS login layout. Move language selector to bottom-right of card. Keep all existing bindings intact.",
+      "details": [
+        "Keep .login-wrap as full-viewport flex container with centered alignment",
+        "Change .login-shell max-width from 500px to 420px, add vertical centering via margin/padding",
+        "Move .locale-select from .card-top to a new wrapper at bottom-right of .login-card",
+        "Keep .privacy-tip at top of .login-shell but with reduced visual weight",
+        "Keep .card-top with brand-block (brand-name, login-title, login-subtitle) but no locale-select",
+        "Keep .login-form with two el-form-item and submit button, all bindings unchanged"
+      ]
+    },
+    {
+      "type": "modify_style",
+      "description": "Update scoped CSS for modern, clean enterprise SaaS aesthetic with responsive behavior.",
+      "details": [
+        ".login-shell: max-width 420px, add padding-top for vertical centering offset",
+        ".privacy-tip: remove border, reduce background opacity, smaller font (11px), less padding (6px 12px), lower color contrast",
+        ".login-card: adjust border-radius to 12px, update box-shadow for softer look",
+        ".login-title: font-size 23px, reduce margin-bottom",
+        ".login-subtitle: font-size 13px, lighter color",
+        ".locale-select: reduce width to 90px, position at bottom-right of card with margin-top auto or absolute positioning within card footer",
+        ".login-form :deep(.el-input__wrapper): min-height 40px, border-radius 8px",
+        ".login-form :deep(.el-form-item): margin-bottom 16px",
+        ".login-form :deep(.el-form-item__label): font-size 13px, margin-bottom 4px",
+        ".submit-btn: height 40px, border-radius 8px, font-size 14px",
+        "@media (max-width: 640px): .login-shell width 100%, max-width 100%, padding 16px; .login-wrap padding 12px; .card-top flex-direction column; .locale-select width 100% (if in card-top) or keep subtle; ensure no horizontal scroll"
+      ]
+    }
+  ],
+  "preserved_bindings": [
+    "v-model=\"form.username\"",
+    "v-model=\"form.password\"",
+    "@click=\"submit\"",
+    ":loading=\"loading\"",
+    "v-model=\"locale\"",
+    "@change=\"changeLocale\"",
+    "t('auth.loginTitle')",
+    "t('auth.username')",
+    "t('auth.password')",
+    "t('auth.loginButton')"
+  ],
+  "not_added": [
+    "No :disabled binding added (privacyAccepted does not exist in script)",
+    "No new features (registration, forgot password, third-party login)",
+    "No new dependencies",
+    "No script modifications"
+  ],
+  "verification": "cd frontend && npm run build"
+}
+```

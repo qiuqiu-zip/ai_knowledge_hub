@@ -1,0 +1,4 @@
+ M .ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch
+ M .ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt
+ M .ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json
+?? .ai-dev-supervisor/runs/20260502-225830/iterations/

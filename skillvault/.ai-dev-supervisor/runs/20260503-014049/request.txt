@@ -1,0 +1,1 @@
+测试 Developer Loop 真实改代码能力。只允许修改 frontend/src/views/LoginView.vue。不要改 script，不要改业务逻辑，不要改接口、认证、路由、i18n、状态管理或后端。只做一个可验证的 UI 样式微调：把 .login-card 的 border-radius 改为 18px，把 .submit-btn 的 height 改为 46px。除此之外不要修改任何内容。

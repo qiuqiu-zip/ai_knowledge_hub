@@ -1,0 +1,51 @@
+{
+  "allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "changed_files": [
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch",
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt",
+    ".ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json",
+    "frontend/src/views/LoginView.vue",
+    ".ai-dev-supervisor/runs/20260502-225830/iterations/",
+    ".ai-dev-supervisor/runs/20260503-014049/",
+    ".ai-dev-supervisor/runs/20260503-015806/",
+    ".ai-dev-supervisor/runs/20260503-022234/"
+  ],
+  "run_artifact_changed_files": [
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_diff.patch",
+    ".ai-dev-supervisor/runs/20260502-225830/baseline_git_status.txt",
+    ".ai-dev-supervisor/runs/20260502-225830/dev_loop_state.json",
+    ".ai-dev-supervisor/runs/20260502-225830/iterations/",
+    ".ai-dev-supervisor/runs/20260503-014049/",
+    ".ai-dev-supervisor/runs/20260503-015806/",
+    ".ai-dev-supervisor/runs/20260503-022234/"
+  ],
+  "business_changed_files": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "allowed_business_changed_files": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "violations": [],
+  "passed": true,
+  "policy_allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "cli_allowed_paths": [],
+  "effective_allowed_paths": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "changed_files_this_iteration": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "business_changed_files_this_iteration": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "allowed_business_changed_files_this_iteration": [
+    "frontend/src/views/LoginView.vue"
+  ],
+  "preexisting_business_changed_files": [
+    "frontend/src/views/LoginView.vue"
+  ]
+}
