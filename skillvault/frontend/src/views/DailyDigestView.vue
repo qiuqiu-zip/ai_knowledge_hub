@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import api from '../api/client'
 import PaginationBar from '../components/PaginationBar.vue'
 
@@ -17,10 +18,13 @@ type RecItem = {
   link_label?: string
   updated_at?: string
   summary?: string
+  reason?: string
   change_type?: 'created' | 'updated' | 'recommended' | string
 }
 
 type ProjectDoc = {
+  document_id?: number
+  source_document_id?: number
   title?: string
   file_path?: string
   file_url?: string
@@ -52,7 +56,9 @@ const generateLoading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(5)
 const total = ref(0)
+const todayStatus = ref<any>(null)
 const { t } = useI18n()
+const router = useRouter()
 
 function formatDate(ts?: string) {
   if (!ts) return '-'
@@ -123,9 +129,9 @@ function normalizeRecTitle(rec: RecItem) {
 }
 
 function normalizeRecIntro(rec: RecItem) {
-  const summary = (rec.summary || '').trim()
+  const summary = cleanDigestText(rec.summary || '')
   if (summary) return summary
-  return '暂无项目简介，可点击链接查看原始内容。'
+  return '暂无可读摘要，可查看来源文档。'
 }
 
 function changeTypeText(changeType?: string) {
@@ -226,6 +232,32 @@ function groupedProjects(row: any): ProjectGroup[] {
   return Array.from(map.values())
 }
 
+function cleanDigestText(input: string) {
+  if (!input) return ''
+  let s = String(input)
+  s = s.replace(/<!--[\s\S]*?-->/g, ' ')
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  s = s.replace(/<img[\s\S]*?>/gi, ' ')
+  s = s.replace(/<picture[\s\S]*?<\/picture>/gi, ' ')
+  s = s.replace(/!\[[^\]]*]\([^)]*\)/g, ' ')
+  s = s.replace(/\[!\[[^\]]*]\([^)]*\)]\([^)]*\)/g, ' ')
+  s = s.replace(/<\/?[^>]+>/g, ' ')
+  s = s
+    .replace(/&nbsp;|&ensp;|&emsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+  s = s.replace(/https?:\/\/raw\.githubusercontent\.com\/\S+\.(png|jpg|jpeg|gif|svg|webp)/gi, ' ')
+  s = s.replace(/https?:\/\/\S*(shields\.io|badgen\.net)\S*/gi, ' ')
+  s = s.replace(/\b(busuanzi|site[_\s-]?pv|site[_\s-]?uv|site\s+view)\b/gi, ' ')
+  s = s.replace(/keep these links\.?\s*translations will automatically update\.?/gi, ' ')
+  s = s.replace(/^\s*[=~\-`]{3,}\s*$/gm, ' ')
+  s = s.replace(/^\s*\.\.\s+[_\w-]+::?.*$/gm, ' ')
+  s = s.replace(/\s+/g, ' ').trim()
+  return s
+}
+
 function buildCopyText(row: any) {
   const s = asStats(row)
   const recs = asRecommended(row)
@@ -243,7 +275,7 @@ function buildCopyText(row: any) {
   if (groups.length) {
     groups.forEach((g, idx) => {
       lines.push(`${idx + 1}. ${g.title || g.repo || '未命名项目'}`)
-      lines.push(`   简介：${(g.summary || '').trim() || '该项目暂无可用简介，可点击链接查看详情。'}`)
+      lines.push(`   简介：${cleanDigestText(g.summary || '') || '该项目暂无可用简介，可点击链接查看详情。'}`)
       lines.push(`   链接：${projectLink(g) || '-'}`)
       const docNames = projectDocs(g)
         .slice(0, 3)
@@ -301,6 +333,16 @@ async function load() {
     currentPage.value -= 1
     await load()
   }
+  await loadTodayStatus()
+}
+
+async function loadTodayStatus() {
+  try {
+    const { data } = await api.get('/api/digests/today')
+    todayStatus.value = data
+  } catch {
+    todayStatus.value = null
+  }
 }
 
 async function generateTodayDigest() {
@@ -308,7 +350,7 @@ async function generateTodayDigest() {
   try {
     const { data } = await api.post('/api/digests/generate', {})
     if (data?.created) {
-      ElMessage.success(`已创建简报任务：job_id=${data.job_id}`)
+      ElMessage.success(data?.message || `已创建简报任务：job_id=${data.job_id}`)
     } else {
       ElMessage.info(data?.reason || '今日简报任务已存在')
     }
@@ -326,6 +368,15 @@ function openDetail(row: any) {
   detailVisible.value = true
 }
 
+function openSourceDocument(doc: any) {
+  const docId = doc?.source_document_id || doc?.document_id
+  if (!docId) {
+    ElMessage.warning('暂无来源文档')
+    return
+  }
+  router.push({ path: '/documents', query: { document_id: String(docId) } })
+}
+
 async function copyDigest() {
   if (!activeDigest.value) return
   try {
@@ -334,6 +385,21 @@ async function copyDigest() {
   } catch (error) {
     console.error(error)
     ElMessage.error(t('documents.copyFailed'))
+  }
+}
+
+async function copySummaryText(text: string) {
+  const cleaned = cleanDigestText(text || '')
+  if (!cleaned) {
+    ElMessage.warning('暂无可复制摘要')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(cleaned)
+    ElMessage.success('已复制摘要')
+  } catch (error) {
+    console.error(error)
+    ElMessage.error('复制失败，请手动选择内容复制。')
   }
 }
 
@@ -352,10 +418,18 @@ onMounted(load)
   <section class="digest-page">
     <div class="digest-toolbar">
       <div class="digest-toolbar-actions">
-        <el-button :loading="generateLoading" type="primary" plain @click="generateTodayDigest">生成今日简报</el-button>
+        <el-button :loading="generateLoading" type="primary" plain @click="generateTodayDigest">生成/刷新今日简报</el-button>
         <el-button @click="load">刷新</el-button>
       </div>
     </div>
+    <el-alert
+      v-if="todayStatus && !todayStatus.exists"
+      type="info"
+      :closable="false"
+      show-icon
+      :title="`今日（${todayStatus.digest_date || '-'}）简报尚未生成`"
+      description="系统会在定时任务时段自动生成；如果刚完成同步，可点击“生成/刷新今日简报”。"
+    />
 
     <el-card class="digest-table-card" shadow="never">
       <div class="list-shell">
@@ -396,6 +470,46 @@ onMounted(load)
   <el-dialog v-model="detailVisible" :title="`每日简报 - ${activeDigest?.digest_date || ''}`" width="1000px" top="4vh">
     <div class="digest-detail-body">
       <section class="detail-section">
+        <h3>今日重点推荐</h3>
+        <div v-if="activeRecommendedProjects.length" class="rec-list compact">
+          <article v-for="group in activeRecommendedProjects.slice(0, 5)" :key="`rec-${group.repo}-${group.title}`" class="rec-item">
+            <div class="rec-head">
+              <strong>{{ group.title || group.repo || '未命名项目' }}</strong>
+            </div>
+            <p class="rec-intro">{{ cleanDigestText(group.summary || '') || '暂无可读摘要，可查看来源文档。' }}</p>
+            <div class="rec-meta">
+              <div class="reason-line">
+                <el-tag size="small" type="success">重点推荐</el-tag>
+              </div>
+              <div class="rec-links">
+                <template v-if="projectLink(group)">
+                  <a :href="projectLink(group)" target="_blank" rel="noopener noreferrer">{{ projectLinkLabel(group) }}</a>
+                </template>
+                <template v-else>
+                  <span>暂无可用链接</span>
+                </template>
+                <el-button
+                  v-if="projectDocs(group).length && (projectDocs(group)[0].source_document_id || projectDocs(group)[0].document_id)"
+                  size="small"
+                  text
+                  type="primary"
+                  @click="openSourceDocument(projectDocs(group)[0])"
+                >查看来源文档</el-button>
+                <el-button size="small" text @click="copySummaryText(group.summary || '')">复制摘要</el-button>
+              </div>
+            </div>
+          </article>
+        </div>
+        <p v-else class="muted">
+          {{
+            Number(activeStats.documents_created || 0) + Number(activeStats.documents_updated || 0) === 0
+              ? '暂无推荐项目：本日没有新增或更新项目。'
+              : '暂无推荐项目：同步成功，但没有符合推荐条件的内容。'
+          }}
+        </p>
+      </section>
+
+      <section class="detail-section">
         <h3>今日结论</h3>
         <p class="conclusion">{{ digestConclusion(activeDigest) }}</p>
       </section>
@@ -416,7 +530,7 @@ onMounted(load)
                 </el-tag>
               </div>
             </div>
-            <p class="rec-intro">{{ (group.summary || '').trim() || '该项目暂无可用简介，可点击链接查看详情。' }}</p>
+            <p class="rec-intro">{{ cleanDigestText(group.summary || '') || '暂无可读摘要，可查看来源文档。' }}</p>
             <p class="rec-count">涉及文档：{{ Number(group.documents_count || 0) }}，推荐文档：{{ Number(group.recommended_count || 0) }}</p>
             <div class="rec-meta">
               <span>来源：GitHub</span>
@@ -444,59 +558,21 @@ onMounted(load)
             </div>
             <ul v-if="projectDocs(group).length" class="doc-list">
               <li v-for="doc in projectDocs(group).slice(0, 4)" :key="`${group.title}-${doc.file_path}-${doc.title}`">
-                {{ doc.file_path || doc.title || '未命名文档' }}
+                {{ doc.file_path || doc.title || '未命名文档' }}：
+                {{ cleanDigestText(doc.summary || '') || '暂无可读摘要。' }}
+                <el-button
+                  v-if="doc.source_document_id || doc.document_id"
+                  size="small"
+                  text
+                  type="primary"
+                  @click="openSourceDocument(doc)"
+                >查看来源文档</el-button>
+                <el-button size="small" text @click="copySummaryText(doc.summary || '')">复制摘要</el-button>
               </li>
             </ul>
           </article>
         </div>
         <el-empty v-else :description="noRecommendationReason(activeDigest)" />
-      </section>
-
-      <section class="detail-section">
-        <h3>推荐查看</h3>
-        <div v-if="activeRecommendedProjects.length" class="rec-list compact">
-          <article v-for="group in activeRecommendedProjects.slice(0, 5)" :key="`rec-${group.repo}-${group.title}`" class="rec-item">
-            <div class="rec-head">
-              <strong>{{ group.title || group.repo || '未命名项目' }}</strong>
-            </div>
-            <p class="rec-intro">{{ (group.summary || '').trim() || '该项目暂无可用简介，可点击链接查看详情。' }}</p>
-            <div class="rec-meta">
-              <div class="rec-links">
-                <a
-                  v-if="projectLink(group)"
-                  :href="projectLink(group)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >{{ projectLinkLabel(group) }}</a>
-                <a
-                  v-if="group.repository_url && group.repository_url !== projectLink(group)"
-                  :href="group.repository_url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >查看仓库</a>
-                <a
-                  v-if="projectDocs(group).length && projectDocs(group)[0].file_url"
-                  :href="projectDocs(group)[0].file_url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >{{ ((projectDocs(group)[0].file_path || '').toLowerCase().endsWith('readme.md')) ? '查看README' : '查看文件' }}</a>
-                <span v-if="!projectLink(group)">暂无可用链接</span>
-              </div>
-            </div>
-            <ul v-if="projectDocs(group).length" class="doc-list">
-              <li v-for="doc in projectDocs(group).slice(0, 3)" :key="`r-${group.title}-${doc.file_path}`">
-                {{ doc.file_path || doc.title || '未命名文档' }}
-              </li>
-            </ul>
-          </article>
-        </div>
-        <p v-else class="muted">
-          {{
-            Number(activeStats.documents_created || 0) + Number(activeStats.documents_updated || 0) === 0
-              ? '暂无推荐项目：本日没有新增或更新项目。'
-              : '暂无推荐项目：同步成功，但没有符合推荐条件的内容。'
-          }}
-        </p>
       </section>
 
       <section class="detail-section metrics">

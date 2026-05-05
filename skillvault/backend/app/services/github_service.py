@@ -6,10 +6,11 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
-from urllib.parse import quote
+from urllib.parse import quote, quote_plus
 import httpx
 
 from app.core.config import settings
+from app.services.document_quality import should_ingest_document
 
 logger = logging.getLogger(__name__)
 
@@ -331,6 +332,25 @@ class GithubService:
             },
         }
 
+    @staticmethod
+    def is_chinese_friendly_repo(item: dict) -> bool:
+        blob = " ".join(
+            [
+                str(item.get("full_name") or ""),
+                str(item.get("name") or ""),
+                str(item.get("description") or ""),
+                " ".join(item.get("topics") or []),
+            ]
+        )
+        return bool(re.search(r"[\u4e00-\u9fff]", blob))
+
+    def search_repositories(self, *, query: str, min_stars: int, per_page: int = 30) -> list[dict]:
+        q = f"{query} stars:>={max(0, min_stars)}"
+        payload = self._github_request(
+            f"/search/repositories?q={quote_plus(q)}&sort=stars&order=desc&per_page={max(1, min(per_page, 100))}"
+        )
+        return payload.get("items") or []
+
     @classmethod
     def _is_useful_file_path(cls, path: str) -> bool:
         lowered = path.lower()
@@ -434,7 +454,7 @@ class GithubService:
             "reason": self._reason_for_doc(language, doc_type, priority),
         }
 
-    def collect_useful_documents(self, base_data: dict) -> list[dict]:
+    def collect_useful_documents(self, base_data: dict) -> tuple[list[dict], dict]:
         owner = base_data["owner"]
         repo_name = base_data["repo_name"]
         branch = base_data["default_branch"] or "main"
@@ -460,12 +480,25 @@ class GithubService:
         candidates = candidates[: settings.github_sync_max_files_per_source]
 
         docs: list[dict] = []
+        skipped_count = 0
+        skipped_reasons: dict[str, int] = {}
         for node in candidates:
             path = node["path"]
             try:
                 file_data = self.fetch_file_content(owner, repo_name, path, branch)
                 content = (file_data.get("content") or "").strip()
                 if not content:
+                    continue
+                should_ingest, reason, cleaned_preview = should_ingest_document(file_data.get("path") or path, content)
+                if not should_ingest:
+                    skipped_count += 1
+                    skipped_reasons[reason] = skipped_reasons.get(reason, 0) + 1
+                    logger.info(
+                        "skip low-value doc repo=%s path=%s reason=%s",
+                        base_data.get("full_name"),
+                        file_data.get("path") or path,
+                        reason,
+                    )
                     continue
                 doc_meta = self.classify_document(path=file_data.get("path") or path, content=content)
                 docs.append(
@@ -485,6 +518,7 @@ class GithubService:
                             "repo_url": base_data.get("html_url"),
                             "file_html_url": file_data.get("html_url")
                             or f"https://github.com/{owner}/{repo_name}/blob/{branch}/{path}",
+                            "cleaned_preview": cleaned_preview[:800],
                             **doc_meta,
                         },
                     }
@@ -492,4 +526,9 @@ class GithubService:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("skip file %s/%s path=%s because: %s", owner, repo_name, path, exc)
                 continue
-        return docs
+        return docs, {
+            "candidate_docs": len(candidates),
+            "kept_docs": len(docs),
+            "skipped_docs": skipped_count,
+            "skipped_reasons": skipped_reasons,
+        }

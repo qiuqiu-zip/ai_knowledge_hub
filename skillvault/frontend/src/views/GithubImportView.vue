@@ -9,6 +9,8 @@ const jobId = ref<number | null>(null)
 const job = ref<any>(null)
 const repos = ref<any[]>([])
 const reposLoading = ref(false)
+const discovering = ref(false)
+const discoveryResult = ref<any | null>(null)
 const currentPage = ref(1)
 const pageSize = ref(5)
 const minStars = ref(100)
@@ -78,6 +80,27 @@ async function queryJob() {
   job.value = data
 }
 
+function formatDiscoveryMessage(result: any) {
+  if (!result) return ''
+  if (typeof result?.message === 'string' && result.message.trim()) return result.message
+  return `发现完成：新增 ${result?.created_sources || 0} 个来源，入队 ${result?.enqueued_jobs || 0} 个同步任务。`
+}
+
+async function discoverNow() {
+  discovering.value = true
+  try {
+    const { data } = await api.post('/api/github/discover-now')
+    discoveryResult.value = data || {}
+    ElMessage.success(formatDiscoveryMessage(data))
+    await loadRepos()
+  } catch (error: any) {
+    const detail = error?.response?.data?.detail || error?.message || '触发发现失败，请稍后重试'
+    ElMessage.error(detail)
+  } finally {
+    discovering.value = false
+  }
+}
+
 onMounted(loadRepos)
 </script>
 
@@ -100,6 +123,30 @@ onMounted(loadRepos)
       </el-form>
       <p v-if="jobId" class="job-id">job_id: {{ jobId }}</p>
       <pre v-if="job" class="job-json">{{ JSON.stringify(job, null, 2) }}</pre>
+    </el-card>
+
+    <el-card shadow="never" class="discovery-card">
+      <div class="discovery-head">
+        <div>
+          <div class="discovery-title">立即发现 GitHub 项目</div>
+          <div class="discovery-desc">按 Star 优先、中文友好优先自动发现项目，并加入同步队列。</div>
+        </div>
+        <el-button type="primary" :loading="discovering" @click="discoverNow">立即发现 GitHub 项目</el-button>
+      </div>
+
+      <div v-if="discoveryResult" class="discovery-result">
+        <div class="result-line">{{ formatDiscoveryMessage(discoveryResult) }}</div>
+        <el-row :gutter="12" class="result-grid">
+          <el-col :xs="24" :sm="12" :md="8"><div class="result-item">关键词数：{{ (discoveryResult.queries || []).length }}</div></el-col>
+          <el-col :xs="24" :sm="12" :md="8"><div class="result-item">拉取仓库：{{ discoveryResult.fetched || 0 }}</div></el-col>
+          <el-col :xs="24" :sm="12" :md="8"><div class="result-item">过滤数量：{{ discoveryResult.filtered || 0 }}</div></el-col>
+          <el-col :xs="24" :sm="12" :md="8"><div class="result-item">新增来源：{{ discoveryResult.created_sources || 0 }}</div></el-col>
+          <el-col :xs="24" :sm="12" :md="8"><div class="result-item">已存在来源：{{ discoveryResult.existing_sources || 0 }}</div></el-col>
+          <el-col :xs="24" :sm="12" :md="8"><div class="result-item">入队同步任务：{{ discoveryResult.enqueued_jobs || 0 }}</div></el-col>
+          <el-col :xs="24" :sm="12" :md="8"><div class="result-item">跳过重复任务：{{ discoveryResult.skipped_jobs || 0 }}</div></el-col>
+          <el-col :xs="24" :sm="12" :md="16"><div class="result-item">限流状态：{{ discoveryResult?.rate_limit?.limited ? `是（${discoveryResult?.rate_limit?.message || '请稍后重试'}）` : '否' }}</div></el-col>
+        </el-row>
+      </div>
     </el-card>
 
     <el-card shadow="never" class="repos-card">
@@ -154,6 +201,14 @@ onMounted(loadRepos)
 .job-id { margin-top: 10px; color: #334155; }
 .job-json { margin-top: 8px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
 .repos-card { display: flex; flex-direction: column; }
+.discovery-card { display: grid; gap: 10px; }
+.discovery-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.discovery-title { font-size: 16px; font-weight: 600; color: #111827; }
+.discovery-desc { color: #6b7280; font-size: 13px; margin-top: 4px; }
+.discovery-result { border: 1px solid #e5e7eb; background: #f8fafc; border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+.result-line { color: #0f172a; font-size: 14px; }
+.result-grid { margin-top: 4px; }
+.result-item { color: #334155; font-size: 13px; line-height: 1.6; }
 .repos-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
 .toolbar-left { display: flex; flex-direction: column; gap: 3px; }
 .toolbar-tip { color: #64748b; font-size: 12px; }

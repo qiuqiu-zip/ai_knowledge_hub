@@ -11,7 +11,7 @@ const loading = ref(false)
 const detailLoading = ref(false)
 const previewVisible = ref(false)
 const activeDoc = ref<any | null>(null)
-const previewMode = ref<'rendered' | 'raw'>('raw')
+const previewMode = ref<'rendered' | 'cleaned' | 'raw'>('raw')
 const documentActionLoading = reactive<Record<string, boolean>>({})
 const filters = reactive({ repo: '', docType: '', language: '', recommended: '', hasSummary: '' })
 const pagination = reactive({ page: 1, pageSize: 5, total: 0 })
@@ -115,17 +115,24 @@ function cleanDocumentExcerpt(input?: string, max = 160) {
   if (!text.trim()) return '暂无摘要，可打开预览查看原文。'
 
   let cleaned = text
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<img\b[^>]*>/gi, ' ')
     .replace(/\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)/g, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/^\s*\|.*\|\s*$/gm, ' ')
     .replace(/^\s*[=\-~`]{3,}\s*$/gm, ' ')
     .replace(/^\s*\.\.\s+[^\n]*$/gm, ' ')
     .replace(/^\s*#+\s*/gm, '')
+    .replace(/busuanzi|site_pv|site_uv/gi, ' ')
 
   const lines = cleaned
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
     .filter((l) => !/^(npm|pnpm|yarn|pip|curl|docker|mvn|gradle)\b/i.test(l))
+    .filter((l) => !/(shields\.io|badgen\.net|stargazers|forks|badge)/i.test(l))
+    .filter((l) => !/^(redirect|window\.location|meta refresh)/i.test(l))
 
   cleaned = lines.join(' ').replace(/\s+/g, ' ').trim()
   if (!cleaned) return '暂无摘要，可打开预览查看原文。'
@@ -278,20 +285,31 @@ async function handleDocumentAction(row: any, action: 'chunk' | 'embed' | 'summa
 
 const activeDocLinks = computed(() => previewLinks(activeDoc.value || {}))
 const activeDocContent = computed(() => String(activeDoc.value?.content || activeDoc.value?.raw_content || activeDoc.value?.text || '').trim())
+const activeDocCleanedContent = computed(() => cleanDocumentExcerpt(activeDocContent.value, 20000))
+
+function isLowValueDoc(row: any) {
+  const path = String(row?.file_path || '').toLowerCase()
+  if (!path) return false
+  if (/_404\.md$|\/404\.md$|\/404\.html$/.test(path)) return true
+  if (/_coverpage\.md$|_navbar\.md$|_sidebar\.md$|_footer\.md$/.test(path)) return true
+  const summary = String(row?.metadata?.summary || '').toLowerCase()
+  if (summary.includes('redirect') || summary.includes('moved to') || summary.includes('已迁移')) return true
+  return false
+}
 
 async function openPreview(row: any) {
   previewVisible.value = true
   detailLoading.value = true
   activeDoc.value = row
-  previewMode.value = isMarkdownLike(row) ? 'rendered' : 'raw'
+  previewMode.value = isMarkdownLike(row) ? 'rendered' : 'cleaned'
   try {
     const { data } = await api.get(`/api/documents/${row.id}`)
     activeDoc.value = data || row
-    previewMode.value = isMarkdownLike(activeDoc.value) ? 'rendered' : 'raw'
+    previewMode.value = isMarkdownLike(activeDoc.value) ? 'rendered' : 'cleaned'
   } catch (error: any) {
     ElMessage.error(error?.response?.data?.detail || '加载文档详情失败，将展示列表数据')
     activeDoc.value = row
-    previewMode.value = isMarkdownLike(row) ? 'rendered' : 'raw'
+    previewMode.value = isMarkdownLike(row) ? 'rendered' : 'cleaned'
   } finally {
     detailLoading.value = false
   }
@@ -384,7 +402,12 @@ onMounted(load)
           </el-table-column>
 
           <el-table-column :label="t('documents.summaryOrExcerpt')" min-width="320">
-            <template #default="scope">{{ summaryPreview(scope.row) }}</template>
+            <template #default="scope">
+              <div>
+                <div>{{ summaryPreview(scope.row) }}</div>
+                <div v-if="isLowValueDoc(scope.row)" class="low-value-hint">该文件主要是跳转、封面、导航或装饰内容。</div>
+              </div>
+            </template>
           </el-table-column>
 
           <el-table-column :label="t('documents.commit')" width="90">
@@ -441,6 +464,7 @@ onMounted(load)
               <el-tag size="small" type="info">{{ docTypeText(activeDoc) }}</el-tag>
               <el-tag size="small" type="success">{{ languageText(activeDoc) }}</el-tag>
               <el-tag v-if="activeDoc?.metadata?.is_recommended" size="small" type="warning">推荐</el-tag>
+              <el-tag v-if="isLowValueDoc(activeDoc)" size="small" type="danger">低价值文件</el-tag>
             </div>
             <div class="drawer-links">
               <el-button
@@ -484,6 +508,7 @@ onMounted(load)
 
           <el-card shadow="never" class="meta-card">
             <div><b>摘要：</b>{{ detailSummary(activeDoc) }}</div>
+            <div v-if="isLowValueDoc(activeDoc)" class="low-value-hint"><b>提示：</b>该文件主要是跳转、封面、导航或装饰内容，不建议作为知识素材。</div>
             <div><b>文件路径：</b>{{ activeDoc.file_path || '-' }}</div>
             <div><b>来源链接：</b>{{ activeDoc.source_url || '暂无可用链接' }}</div>
             <div><b>创建时间：</b>{{ activeDoc.created_at ? new Date(activeDoc.created_at).toLocaleString() : '-' }}</div>
@@ -498,6 +523,7 @@ onMounted(load)
                   v-model="previewMode"
                   :options="[
                     { label: '渲染预览', value: 'rendered' },
+                    { label: '清洗文本', value: 'cleaned' },
                     { label: '原文', value: 'raw' },
                   ]"
                 />
@@ -505,7 +531,8 @@ onMounted(load)
             </template>
 
             <template v-if="activeDocContent">
-              <MarkdownPreview v-if="previewMode === 'rendered'" :content="activeDocContent" />
+              <MarkdownPreview v-if="previewMode === 'rendered'" :content="activeDocCleanedContent || activeDocContent" />
+              <pre v-else-if="previewMode === 'cleaned'" class="content-pre">{{ activeDocCleanedContent || '当前文档清洗后无可读正文，可切换到原文查看。' }}</pre>
               <pre v-else class="content-pre">{{ activeDocContent }}</pre>
             </template>
             <el-empty v-else description="当前接口未返回完整文档内容，可打开 GitHub 查看原文件。" />
@@ -531,6 +558,7 @@ onMounted(load)
 }
 .doc-title-cell { display: grid; gap: 4px; }
 .doc-sub { color: #6b7280; font-size: 12px; }
+.low-value-hint { color: #b45309; font-size: 12px; margin-top: 4px; }
 .drawer-body { display: grid; gap: 12px; }
 .drawer-head h3 { margin: 0; }
 .drawer-meta { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }

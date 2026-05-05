@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     github_sync_daily_max_files: int = 500
     github_sync_prefer_chinese: bool = True
     github_sync_auto_summary_limit: int = 5
+    github_discovery_enabled: bool = True
+    github_discovery_interval_minutes: int = 1440
+    github_discovery_min_stars: int = 100
+    github_discovery_max_repos_per_run: int = 10
+    github_discovery_queries: str = "llm,rag,agent,developer-tools,backend,database,redis,java,python"
+    github_discovery_prefer_chinese: bool = True
 
     auto_summarize_enabled: bool = True
     auto_summarize_readme_only: bool = True
@@ -60,6 +66,12 @@ class Settings(BaseSettings):
     auto_skill_generate_enabled: bool = False
 
     digest_daily_hour: int = 9
+    app_timezone: str = "Asia/Shanghai"
+    digest_timezone: str | None = None
+
+    @property
+    def github_discovery_queries_list(self) -> list[str]:
+        return [q.strip() for q in (self.github_discovery_queries or "").split(",") if q.strip()]
 
 
 @lru_cache

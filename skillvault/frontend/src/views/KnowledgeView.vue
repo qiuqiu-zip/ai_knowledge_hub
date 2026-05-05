@@ -227,7 +227,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section>
+  <section class="knowledge-page">
     <el-card shadow="never" class="knowledge-panel">
       <div class="toolbar-row">
         <el-input v-model="keyword" placeholder="搜索标题、摘要、来源项目或路径" clearable style="width: 320px" />
@@ -372,7 +372,19 @@ onMounted(load)
 </template>
 
 <style scoped>
-.knowledge-panel { display: flex; flex-direction: column; }
+.knowledge-page {
+  min-height: calc(100vh - 140px);
+}
+.knowledge-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 180px);
+}
+.knowledge-panel :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 220px);
+}
 .toolbar-row {
   display: flex;
   gap: 8px;
@@ -380,9 +392,8 @@ onMounted(load)
   margin-bottom: 12px;
 }
 .list-shell {
-  height: calc(100vh - 400px);
-  max-height: calc(100vh - 350px);
-  min-height: 280px;
+  flex: 1;
+  min-height: 420px;
   overflow: auto;
 }
 .title-cell {
@@ -460,10 +471,19 @@ onMounted(load)
 }
 
 @media (max-width: 960px) {
+  .knowledge-page {
+    min-height: auto;
+  }
+  .knowledge-panel {
+    min-height: auto;
+  }
+  .knowledge-panel :deep(.el-card__body) {
+    min-height: auto;
+  }
   .list-shell {
-    height: auto;
+    flex: initial;
     max-height: 65vh;
-    min-height: 240px;
+    min-height: 260px;
   }
 
   .toolbar-row {

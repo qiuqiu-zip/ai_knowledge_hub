@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 
@@ -11,9 +12,20 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 from app.db import models
 from app.db.session import SessionLocal
+from app.services.github_discovery_service import run_github_discovery
 from app.services.github_service import GithubService, GithubServiceError
 
 logger = logging.getLogger(__name__)
+_LAST_DISCOVERY_RUN_AT: datetime | None = None
+
+
+def _get_digest_tz() -> ZoneInfo:
+    tz_name = settings.digest_timezone or settings.app_timezone or "Asia/Shanghai"
+    try:
+        return ZoneInfo(tz_name)
+    except Exception:
+        logger.warning("invalid digest timezone=%s fallback=Asia/Shanghai", tz_name)
+        return ZoneInfo("Asia/Shanghai")
 
 
 def _build_dedupe_key(source: models.Source, repo_full_name: str | None) -> str:
@@ -31,6 +43,7 @@ def _build_dedupe_key(source: models.Source, repo_full_name: str | None) -> str:
 def run_scheduler_once() -> None:
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:
+        _run_github_discovery_if_due(db, now)
         today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
         jobs_today = db.scalar(
             select(func.count())
@@ -127,22 +140,56 @@ def run_scheduler_once() -> None:
         _enqueue_daily_digest_if_due(db, now)
 
 
+def _run_github_discovery_if_due(db, now: datetime) -> None:
+    global _LAST_DISCOVERY_RUN_AT
+    if not settings.github_discovery_enabled:
+        logger.info("github discovery disabled by config")
+        return
+
+    interval_minutes = max(1, settings.github_discovery_interval_minutes)
+    if _LAST_DISCOVERY_RUN_AT and now < _LAST_DISCOVERY_RUN_AT + timedelta(minutes=interval_minutes):
+        logger.debug(
+            "skip github discovery because interval not reached next_at=%s",
+            (_LAST_DISCOVERY_RUN_AT + timedelta(minutes=interval_minutes)).isoformat(),
+        )
+        return
+
+    summary = run_github_discovery(db, force=False)
+    _LAST_DISCOVERY_RUN_AT = now
+    logger.info(
+        "github discovery done fetched=%s filtered=%s created_sources=%s existing_sources=%s updated_sources=%s enqueued_jobs=%s skipped_jobs=%s limited=%s message=%s",
+        summary.get("fetched"),
+        summary.get("filtered"),
+        summary.get("created_sources"),
+        summary.get("existing_sources"),
+        summary.get("updated_sources"),
+        summary.get("enqueued_jobs"),
+        summary.get("skipped_jobs"),
+        (summary.get("rate_limit") or {}).get("limited"),
+        summary.get("message"),
+    )
+
+
 def _enqueue_daily_digest_if_due(db, now: datetime) -> None:
-    digest_date = now.date().isoformat()
+    digest_tz = _get_digest_tz()
+    local_now = now.astimezone(digest_tz)
+    digest_date = local_now.date().isoformat()
     dedupe_key = f"daily_digest:{digest_date}"
     logger.info(
-        "daily_digest schedule check now=%s hour=%s digest_daily_hour=%s digest_date=%s dedupe_key=%s",
+        "daily_digest schedule check utc_now=%s local_now=%s timezone=%s hour=%s digest_daily_hour=%s digest_date=%s dedupe_key=%s",
         now.isoformat(),
-        now.hour,
+        local_now.isoformat(),
+        str(digest_tz),
+        local_now.hour,
         settings.digest_daily_hour,
         digest_date,
         dedupe_key,
     )
 
-    if now.hour < settings.digest_daily_hour:
+    if local_now.hour < settings.digest_daily_hour:
         logger.info(
             "skip daily_digest because generation hour not reached current_hour=%s required_hour=%s",
-            now.hour,
+            local_now.hour,
             settings.digest_daily_hour,
         )
         return
@@ -150,7 +197,7 @@ def _enqueue_daily_digest_if_due(db, now: datetime) -> None:
     existing = db.scalar(
         select(models.SyncJob)
         .where(models.SyncJob.dedupe_key == dedupe_key)
-        .where(models.SyncJob.status.in_([models.JobStatus.pending, models.JobStatus.running, models.JobStatus.success]))
+        .where(models.SyncJob.status.in_([models.JobStatus.pending, models.JobStatus.running]))
         .limit(1)
     )
     if existing:
@@ -165,23 +212,77 @@ def _enqueue_daily_digest_if_due(db, now: datetime) -> None:
     existing_digest = db.scalar(
         select(models.DailyDigest).where(models.DailyDigest.digest_date == digest_date).limit(1)
     )
+    local_day_start = datetime(local_now.year, local_now.month, local_now.day, tzinfo=digest_tz)
+    local_day_end = local_day_start + timedelta(days=1)
+    window_start_utc = local_day_start.astimezone(timezone.utc)
+    window_end_utc = local_day_end.astimezone(timezone.utc)
+    latest_doc_update = db.scalar(
+        select(models.SourceDocument.updated_at)
+        .where(models.SourceDocument.source_type == models.SourceType.github_api)
+        .where(models.SourceDocument.updated_at >= window_start_utc)
+        .where(models.SourceDocument.updated_at < window_end_utc)
+        .order_by(models.SourceDocument.updated_at.desc())
+        .limit(1)
+    )
+    latest_knowledge_update = db.scalar(
+        select(models.KnowledgeItem.updated_at)
+        .where(models.KnowledgeItem.updated_at >= window_start_utc)
+        .where(models.KnowledgeItem.updated_at < window_end_utc)
+        .order_by(models.KnowledgeItem.updated_at.desc())
+        .limit(1)
+    )
+    latest_skill_update = db.scalar(
+        select(models.SkillCandidate.updated_at)
+        .where(models.SkillCandidate.updated_at >= window_start_utc)
+        .where(models.SkillCandidate.updated_at < window_end_utc)
+        .order_by(models.SkillCandidate.updated_at.desc())
+        .limit(1)
+    )
+    latest_activity = max(
+        [x for x in [latest_doc_update, latest_knowledge_update, latest_skill_update] if x is not None],
+        default=None,
+    )
+    should_refresh_existing = False
     if existing_digest:
-        logger.info(
-            "skip daily_digest because digest record already exists digest_date=%s digest_id=%s",
-            digest_date,
-            existing_digest.id,
-        )
-        return
+        recs = ((existing_digest.stats_json or {}).get("recommended_documents") or [])
+        has_recs = isinstance(recs, list) and len(recs) > 0
+        if not has_recs:
+            should_refresh_existing = True
+        if latest_activity and existing_digest.updated_at and latest_activity > existing_digest.updated_at:
+            should_refresh_existing = True
+        if not should_refresh_existing:
+            logger.info(
+                "skip daily_digest because digest already up-to-date digest_date=%s digest_id=%s latest_activity=%s digest_updated_at=%s",
+                digest_date,
+                existing_digest.id,
+                latest_activity.isoformat() if latest_activity else None,
+                existing_digest.updated_at.isoformat() if existing_digest.updated_at else None,
+            )
+            return
 
     job = enqueue_job(
         db,
         job_type=models.JobType.daily_digest,
-        payload={"date": digest_date, "window_hours": 24},
+        payload={
+            "date": digest_date,
+            "window_hours": 24,
+            "timezone": str(digest_tz),
+            "force_refresh": bool(should_refresh_existing),
+            "local_day_start": local_day_start.isoformat(),
+            "local_day_end": local_day_end.isoformat(),
+        },
         priority=80,
         max_retry=2,
         dedupe_key=dedupe_key,
     )
-    logger.info("enqueue daily_digest date=%s dedupe_key=%s job_id=%s", digest_date, dedupe_key, job.id)
+    logger.info(
+        "enqueue daily_digest date=%s dedupe_key=%s job_id=%s existing_digest_id=%s should_refresh_existing=%s",
+        digest_date,
+        dedupe_key,
+        job.id,
+        existing_digest.id if existing_digest else None,
+        should_refresh_existing,
+    )
 
 
 def main() -> None:

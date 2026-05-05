@@ -153,6 +153,24 @@ function sourceDisplayName(row: any) {
   return repoBySource.value[row.id] || row.name || inferRepoNameFromUrl(row.url || '') || `source-${row.id}`
 }
 
+function sourceStars(row: any) {
+  return Number(row?.metadata?.stars || 0)
+}
+
+function sourceLanguage(row: any) {
+  return row?.metadata?.language || '-'
+}
+
+function sourceDiscoveredBy(row: any) {
+  const v = String(row?.metadata?.discovered_by || '').toLowerCase()
+  if (v.includes('scheduler_github_discovery')) return '自动发现'
+  return '手动添加'
+}
+
+function isChineseFriendly(row: any) {
+  return Boolean(row?.metadata?.is_chinese_friendly)
+}
+
 function repositoryUrl(row: any) {
   const rowRepoUrl = typeof row?.repository_url === 'string' ? row.repository_url.trim() : ''
   if (rowRepoUrl) return rowRepoUrl
@@ -285,6 +303,10 @@ onMounted(load)
               <div class="source-name">{{ sourceDisplayName(row) }}</div>
               <div class="source-meta">
                 <el-tag size="small" type="info">{{ sourceTypeLabel(row.source_type) }}</el-tag>
+                <el-tag size="small" type="warning">⭐ {{ sourceStars(row) }}</el-tag>
+                <el-tag size="small" type="success" v-if="isChineseFriendly(row)">中文友好</el-tag>
+                <el-tag size="small">{{ sourceLanguage(row) }}</el-tag>
+                <el-tag size="small" effect="plain">{{ sourceDiscoveredBy(row) }}</el-tag>
                 <span class="license">{{ t('sources.license') }}: {{ licenseLabel(row) }}</span>
               </div>
             </div>

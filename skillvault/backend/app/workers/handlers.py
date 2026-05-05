@@ -1,6 +1,7 @@
 import logging
 import re
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,7 @@ from app.api.jobs import enqueue_job
 from app.core.config import settings
 from app.db import models
 from app.services.chunk_service import ChunkService
+from app.services.document_quality import should_ingest_document, clean_markdown_noise
 from app.services.embedding_service import EmbeddingService
 from app.services.github_service import GithubService
 from app.services.ingestion_service import IngestionService
@@ -27,7 +29,7 @@ _MARKDOWN_NOISE_RE = re.compile(r"^\s*(npm|pip|curl|wget|docker|go|mvn|gradle)\b
 
 
 def _clean_digest_summary(text: str | None) -> str:
-    raw = (text or "").strip()
+    raw = clean_markdown_noise(text)
     if not raw:
         return ""
     s = _CODE_FENCE_RE.sub(" ", raw)
@@ -48,11 +50,32 @@ def _clean_digest_summary(text: str | None) -> str:
             x = x[2:].strip() if len(x) > 2 else ""
         if x:
             lines.append(x)
-    s = " ".join(lines)
-    s = _MULTI_SPACE_RE.sub(" ", s).strip(" -#|")
-    if len(s) > 160:
-        s = s[:160].rstrip() + "..."
+    s = _MULTI_SPACE_RE.sub(" ", " ".join(lines)).strip(" -#|")
+    if len(s) > 240:
+        cut = s[:240]
+        m = re.search(r"[。！？.!?]", cut[::-1])
+        if m:
+            end = 240 - m.start()
+            s = cut[:end].rstrip()
+        else:
+            s = cut.rstrip()
+        if not s.endswith(("。", ".", "！", "!", "?", "？")):
+            s += "..."
     return s
+
+
+def _build_digest_title(doc: models.SourceDocument, cleaned_summary: str) -> str:
+    title = (doc.title or "").strip()
+    if title and title.lower() not in {"readme", "summary", "untitled", "mock summary"}:
+        return title
+    file_name = (doc.file_path or "").strip().split("/")[-1]
+    if file_name:
+        return file_name
+    if cleaned_summary:
+        return cleaned_summary[:48]
+    if doc.repo and doc.file_path:
+        return f"{doc.repo} / {doc.file_path}"
+    return doc.repo or "未命名文档"
 
 
 def _normalize_github_links(source_url: str | None, repo: str | None, file_path: str | None) -> dict:
@@ -277,6 +300,19 @@ def _build_source_overview(source: models.Source, docs: list[models.SourceDocume
     return "\n".join(lines)
 
 
+def _get_digest_tz_name(payload: dict | None) -> str:
+    return (payload or {}).get("timezone") or settings.digest_timezone or settings.app_timezone or "Asia/Shanghai"
+
+
+def _get_digest_tz(payload: dict | None) -> ZoneInfo:
+    tz_name = _get_digest_tz_name(payload)
+    try:
+        return ZoneInfo(tz_name)
+    except Exception:
+        logger.warning("invalid digest timezone=%s fallback=Asia/Shanghai", tz_name)
+        return ZoneInfo("Asia/Shanghai")
+
+
 def handle_github_sync(db: Session, payload: dict) -> None:
     repo_url = payload["repo_url"]
     logger.info("github_sync start repo_url=%s source_id=%s", repo_url, payload.get("source_id"))
@@ -291,8 +327,14 @@ def handle_github_sync(db: Session, payload: dict) -> None:
     unchanged_count = 1 if readme_status == "unchanged" else 0
 
     # Keep current MVP behavior (README) and additionally ingest useful docs/skills/prompts files.
-    extra_docs = gh.collect_useful_documents(data)
-    logger.info("github_sync fetched extra candidate docs repo=%s count=%s", data.get("full_name"), len(extra_docs))
+    extra_docs, doc_collect_stats = gh.collect_useful_documents(data)
+    logger.info(
+        "github_sync fetched docs repo=%s kept=%s skipped=%s skipped_reasons=%s",
+        data.get("full_name"),
+        doc_collect_stats.get("kept_docs", 0),
+        doc_collect_stats.get("skipped_docs", 0),
+        doc_collect_stats.get("skipped_reasons", {}),
+    )
     for extra in extra_docs:
         extra_doc, status = ingestion.ingest_source_document(source, extra)
         if status in {"created", "updated"}:
@@ -320,12 +362,16 @@ def handle_github_sync(db: Session, payload: dict) -> None:
             "updated_docs": updated_count,
             "unchanged_docs": unchanged_count,
             "queued_chunk_docs": len(changed_docs),
+            "skipped_docs": int(doc_collect_stats.get("skipped_docs", 0)),
+            "skipped_reasons": dict(doc_collect_stats.get("skipped_reasons", {})),
         }
     sync_stats = {
         "created_docs": created_count,
         "updated_docs": updated_count,
         "unchanged_docs": unchanged_count,
         "queued_chunk_docs": len(changed_docs),
+        "skipped_docs": int(doc_collect_stats.get("skipped_docs", 0)),
+        "skipped_reasons": dict(doc_collect_stats.get("skipped_reasons", {})),
     }
     metadata = dict(source.metadata_json or {})
     metadata["last_sync_stats"] = {**sync_stats, "synced_at": datetime.now(timezone.utc).isoformat()}
@@ -493,16 +539,21 @@ def handle_skill_generate(db: Session, payload: dict) -> None:
 
 
 def handle_daily_digest(db: Session, payload: dict) -> None:
-    now = datetime.now(timezone.utc)
-    digest_date = payload.get("date") or now.date().isoformat()
-    window_hours = int(payload.get("window_hours") or 24)
-    window_start = now - timedelta(hours=window_hours)
+    now_utc = datetime.now(timezone.utc)
+    digest_tz = _get_digest_tz(payload)
+    local_now = now_utc.astimezone(digest_tz)
+    digest_date = payload.get("date") or local_now.date().isoformat()
+    local_day_start = datetime(local_now.year, local_now.month, local_now.day, tzinfo=digest_tz)
+    local_day_end = local_day_start + timedelta(days=1)
+    window_start = local_day_start.astimezone(timezone.utc)
+    window_end = local_day_end.astimezone(timezone.utc)
     logger.info(
-        "daily_digest start digest_date=%s window_hours=%s window_start=%s window_end=%s",
+        "daily_digest start digest_date=%s timezone=%s local_now=%s window_start=%s window_end=%s",
         digest_date,
-        window_hours,
+        str(digest_tz),
+        local_now.isoformat(),
         window_start.isoformat(),
-        now.isoformat(),
+        window_end.isoformat(),
     )
 
     github_jobs = list(
@@ -510,6 +561,7 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
             select(models.SyncJob)
             .where(models.SyncJob.job_type == models.JobType.github_sync)
             .where(models.SyncJob.created_at >= window_start)
+            .where(models.SyncJob.created_at < window_end)
             .order_by(models.SyncJob.created_at.desc())
         ).all()
     )
@@ -518,98 +570,128 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
     failed_jobs = sum(1 for j in github_jobs if j.status == models.JobStatus.failed)
     failed_reasons = [j.error_message for j in github_jobs if j.status == models.JobStatus.failed and j.error_message]
 
-    created_docs = db.scalar(
-        select(func.count())
-        .select_from(models.SourceDocument)
-        .where(models.SourceDocument.source_type == models.SourceType.github_api)
-        .where(models.SourceDocument.created_at >= window_start)
-    ) or 0
-    updated_docs = db.scalar(
-        select(func.count())
-        .select_from(models.SourceDocument)
-        .where(models.SourceDocument.source_type == models.SourceType.github_api)
-        .where(models.SourceDocument.updated_at >= window_start)
-        .where(models.SourceDocument.created_at < window_start)
-    ) or 0
+    doc_rows = list(
+        db.scalars(
+            select(models.SourceDocument)
+            .where(models.SourceDocument.source_type == models.SourceType.github_api)
+            .where(models.SourceDocument.updated_at >= window_start)
+            .where(models.SourceDocument.updated_at < window_end)
+            .order_by(models.SourceDocument.updated_at.desc())
+        ).all()
+    )
+    created_docs = sum(1 for d in doc_rows if d.created_at and d.created_at >= window_start)
+    updated_docs = max(0, len(doc_rows) - created_docs)
     unchanged_docs = sum((j.payload or {}).get("sync_stats", {}).get("unchanged_docs", 0) for j in github_jobs if isinstance(j.payload, dict))
 
     chunks_created = db.scalar(
         select(func.count())
         .select_from(models.DocumentChunk)
         .where(models.DocumentChunk.created_at >= window_start)
+        .where(models.DocumentChunk.created_at < window_end)
     ) or 0
     embedded_chunks = db.scalar(
         select(func.count())
         .select_from(models.DocumentChunk)
         .where(models.DocumentChunk.updated_at >= window_start)
+        .where(models.DocumentChunk.updated_at < window_end)
         .where(models.DocumentChunk.embedding.is_not(None))
     ) or 0
     summaries_created = db.scalar(
         select(func.count())
         .select_from(models.KnowledgeItem)
         .where(models.KnowledgeItem.created_at >= window_start)
+        .where(models.KnowledgeItem.created_at < window_end)
     ) or 0
     skill_candidates_created = db.scalar(
         select(func.count())
         .select_from(models.SkillCandidate)
         .where(models.SkillCandidate.created_at >= window_start)
+        .where(models.SkillCandidate.created_at < window_end)
     ) or 0
-    logger.info(
-        "daily_digest stats github_jobs=%s sources_synced=%s succeeded=%s failed=%s created_docs=%s updated_docs=%s unchanged_docs=%s chunks=%s embedded=%s summaries=%s skills=%s",
-        len(github_jobs),
-        sources_synced,
-        succeeded_jobs,
-        failed_jobs,
-        created_docs,
-        updated_docs,
-        unchanged_docs,
-        chunks_created,
-        embedded_chunks,
-        summaries_created,
-        skill_candidates_created,
-    )
 
-    recommended_rows = list(
-        db.scalars(
-            select(models.SourceDocument)
-            .where(models.SourceDocument.updated_at >= window_start)
-            .where(
-                (models.SourceDocument.file_path.ilike("%readme%"))
-                | (models.SourceDocument.file_path.ilike("%skill%"))
-                | (models.SourceDocument.file_path.ilike("%prompt%"))
-                | (models.SourceDocument.file_path.ilike("%guide%"))
-                | (models.SourceDocument.file_path.ilike("%tutorial%"))
-            )
-            .order_by(models.SourceDocument.updated_at.desc())
-            .limit(8)
-        ).all()
-    )
     recommended_documents = []
-    for d in recommended_rows:
+    filtered_documents_count = 0
+    noise_cleaned_count = 0
+    filter_reasons: dict[str, int] = {}
+    for d in doc_rows:
+        keep, reason, cleaned_preview = should_ingest_document(d.file_path, d.content)
+        if not keep:
+            filtered_documents_count += 1
+            filter_reasons[reason] = filter_reasons.get(reason, 0) + 1
+            continue
         meta = d.metadata_json or {}
         summary = (meta.get("summary") or "").strip()
+        raw_candidate = summary or d.content or ""
+        if clean_markdown_noise(raw_candidate) != (raw_candidate or "").strip():
+            noise_cleaned_count += 1
         if not summary:
-            summary = (d.content or "").strip().replace("\n", " ")
+            summary = cleaned_preview or clean_markdown_noise(d.content)
         summary = _clean_digest_summary(summary)
-        if not summary:
-            summary = "该项目暂无可用简介，可点击链接查看详情。"
+        if not summary or len(summary) < 40:
+            filtered_documents_count += 1
+            filter_reasons["low_value_content:summary_too_short_after_cleaning"] = (
+                filter_reasons.get("low_value_content:summary_too_short_after_cleaning", 0) + 1
+            )
+            continue
+
         change_type = "updated"
         if d.created_at and d.created_at >= window_start:
             change_type = "created"
+        reason_text = "项目文档更新"
+        doc_type = str(meta.get("doc_type") or "")
+        if doc_type == "readme":
+            reason_text = "高价值项目 README 更新"
+        elif doc_type in {"guide", "docs", "api"}:
+            reason_text = "技术文档有新增或更新"
+        elif doc_type in {"skill", "prompt"}:
+            reason_text = "可沉淀为 Skill/Prompt 的内容更新"
+        language = str(meta.get("language") or "unknown")
+        if language == "zh":
+            reason_text = f"{reason_text}（中文内容）"
+
         links = _normalize_github_links(d.source_url, d.repo, d.file_path)
+        title = _build_digest_title(d, summary)
+        reason_text = reason_text if len(reason_text.strip()) > 0 else "项目文档有更新，适合快速阅读"
         recommended_documents.append(
             {
                 "document_id": d.id,
-                "title": d.title,
+                "source_document_id": d.id,
+                "title": title,
                 "repo": d.repo,
                 "file_path": d.file_path,
                 "source_url": d.source_url,
                 "updated_at": d.updated_at.isoformat() if d.updated_at else None,
-                "summary": summary,
+                "summary": summary[:240],
+                "reason": reason_text,
                 "change_type": change_type,
+                "doc_type": doc_type or "other",
+                "language": language,
+                "is_recommended": bool(meta.get("is_recommended", True)),
                 **links,
             }
         )
+
+    recommended_documents.sort(key=lambda x: x.get("updated_at") or "", reverse=True)
+    recommended_documents.sort(
+        key=lambda x: (
+            0 if x.get("doc_type") == "readme" else 1,
+            0 if x.get("language") == "zh" else 1,
+            0 if x.get("is_recommended") else 1,
+        )
+    )
+    recommended_documents = recommended_documents[:10]
+    logger.info(
+        "daily_digest candidates=%s filtered=%s noise_cleaned=%s recommended=%s filtered_reasons=%s knowledge_count=%s skill_count=%s sync_success=%s sync_failed=%s",
+        len(doc_rows),
+        filtered_documents_count,
+        noise_cleaned_count,
+        len(recommended_documents),
+        filter_reasons,
+        summaries_created,
+        skill_candidates_created,
+        succeeded_jobs,
+        failed_jobs,
+    )
 
     lines = [
         f"SkillVault Daily Digest - {digest_date}",
@@ -635,8 +717,12 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
             if rec.get("summary"):
                 lines.append(f"   简介：{rec.get('summary')}")
     else:
-        if created_docs == 0 and updated_docs == 0:
-            lines.append("- 暂无推荐内容：本日未发现新增或更新项目。")
+        if created_docs == 0 and updated_docs == 0 and succeeded_jobs > 0:
+            lines.append("- 暂无推荐内容：今日同步成功，但源仓库在当前窗口内没有新增或更新内容。")
+        elif filtered_documents_count > 0:
+            lines.append("- 暂无推荐内容：今日候选内容均被质量过滤（跳转页/封面页/噪声内容）。")
+        elif succeeded_jobs == 0 and failed_jobs == 0:
+            lines.append("- 暂无推荐内容：今日同步任务尚未完成，请稍后刷新。")
         else:
             lines.append("- 暂无推荐内容：今日没有符合推荐条件的文档。")
     if failed_reasons:
@@ -669,6 +755,12 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
         "projects_updated": projects_updated,
         "projects_recommended": projects_recommended,
         "failed_reasons": failed_reasons[:20],
+        "filtered_documents_count": int(filtered_documents_count),
+        "noise_cleaned_count": int(noise_cleaned_count),
+        "filtered_reasons": filter_reasons,
+        "digest_timezone": str(digest_tz),
+        "window_start": window_start.isoformat(),
+        "window_end": window_end.isoformat(),
     }
 
     digest = db.scalar(select(models.DailyDigest).where(models.DailyDigest.digest_date == digest_date).limit(1))
@@ -680,7 +772,12 @@ def handle_daily_digest(db: Session, payload: dict) -> None:
     digest.title = f"SkillVault Daily Digest - {digest_date}"
     digest.content = "\n".join(lines)
     digest.stats_json = stats
-    logger.info("daily_digest content_ready digest_date=%s content_empty=%s", digest_date, not bool(digest.content.strip()))
+    logger.info(
+        "daily_digest content_ready digest_date=%s content_empty=%s empty_reason=%s",
+        digest_date,
+        not bool(digest.content.strip()),
+        "no_recommendation" if not recommended_documents else "has_recommendation",
+    )
     db.commit()
     logger.info(
         "daily_digest done digest_date=%s digest_id=%s created=%s recommended_count=%s failed_reasons_count=%s",
